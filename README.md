@@ -1,0 +1,1 @@
+# fuji-rock-artist-memo
