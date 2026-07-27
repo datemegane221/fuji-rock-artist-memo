@@ -117,7 +117,7 @@ export default function App() {
       }}>
         <div style={{
           position: "absolute", top: -30, right: -30, width: 140, height: 140,
-          borderRadius: "50%", background: "rgba(217,119,46,0.15)",
+          borderRadius: "50%", background: "rgba(217,119,46,0.15)", pointerEvents: "none",
         }} />
         <p style={{
           margin: 0, fontSize: 11, letterSpacing: "0.15em", color: "#9BC7A0",
