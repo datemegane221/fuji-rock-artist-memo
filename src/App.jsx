@@ -1,54 +1,79 @@
-import { useState, useEffect } from "react";
-import { loadState, saveState, genId } from "./storage.js";
+import { useState, useEffect, useCallback, useRef } from "react";
+import * as api from "./api.js";
 import ArtistListScreen from "./ArtistListScreen.jsx";
 import ArtistDetailScreen from "./ArtistDetailScreen.jsx";
 
 export default function App() {
-  const [data, setData] = useState({ artists: [], sightings: [] });
-  const [loading, setLoading] = useState(true);
+  const [artists, setArtists] = useState([]);
+  const [sightings, setSightings] = useState([]);
+  const [loadState, setLoadState] = useState("loading"); // loading | loaded | error
+  const [loadError, setLoadError] = useState(null);
   const [view, setView] = useState({ screen: "list" });
 
-  useEffect(() => {
-    setData(loadState());
-    setLoading(false);
+  // Guards against a stale response clobbering a newer one - e.g. StrictMode's
+  // double effect invocation in dev, or a fast double-click on "再読み込み".
+  const loadRequestIdRef = useRef(0);
+
+  const loadAll = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
+    setLoadState("loading");
+    setLoadError(null);
+    try {
+      const [artistsData, sightingsData] = await Promise.all([api.fetchArtists(), api.fetchSightings()]);
+      if (loadRequestIdRef.current !== requestId) return;
+      setArtists(artistsData);
+      setSightings(sightingsData);
+      setLoadState("loaded");
+    } catch (e) {
+      if (loadRequestIdRef.current !== requestId) return;
+      setLoadError(e.message || "データの読み込みに失敗しました");
+      setLoadState("error");
+    }
   }, []);
 
-  const persist = (next) => {
-    setData(next);
-    saveState(next);
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  const refreshArtists = async () => setArtists(await api.fetchArtists());
+  const refreshSightings = async () => setSightings(await api.fetchSightings());
+
+  const addArtist = async (fields) => {
+    const result = await api.createArtist(fields);
+    await refreshArtists();
+    return result.id;
   };
 
-  const addArtist = (fields) => {
-    const artist = { id: genId(), createdAt: new Date().toISOString(), ...fields };
-    persist({ ...data, artists: [artist, ...data.artists] });
-    return artist.id;
+  const updateArtist = async (id, fields) => {
+    await api.updateArtist(id, fields);
+    await refreshArtists();
   };
 
-  const updateArtist = (id, fields) => {
-    persist({ ...data, artists: data.artists.map((a) => (a.id === id ? { ...a, ...fields } : a)) });
+  const deleteArtist = async (id) => {
+    // the API has no documented cascade behavior, so remove this artist's
+    // sightings ourselves before removing the artist record itself
+    const toDelete = sightings.filter((s) => s.artistId === id);
+    for (const s of toDelete) {
+      await api.deleteSighting(s.id);
+    }
+    await api.deleteArtist(id);
+    await Promise.all([refreshArtists(), refreshSightings()]);
   };
 
-  const deleteArtist = (id) => {
-    persist({
-      artists: data.artists.filter((a) => a.id !== id),
-      sightings: data.sightings.filter((s) => s.artistId !== id),
-    });
+  const addSighting = async (artistId, fields) => {
+    await api.createSighting({ ...fields, artistId });
+    await refreshSightings();
   };
 
-  const addSighting = (artistId, fields) => {
-    const sighting = { id: genId(), artistId, ...fields };
-    persist({ ...data, sightings: [sighting, ...data.sightings] });
+  const updateSighting = async (id, fields) => {
+    await api.updateSighting(id, fields);
+    await refreshSightings();
   };
 
-  const updateSighting = (id, fields) => {
-    persist({ ...data, sightings: data.sightings.map((s) => (s.id === id ? { ...s, ...fields } : s)) });
+  const deleteSighting = async (id) => {
+    await api.deleteSighting(id);
+    await refreshSightings();
   };
 
-  const deleteSighting = (id) => {
-    persist({ ...data, sightings: data.sightings.filter((s) => s.id !== id) });
-  };
-
-  if (loading) {
+  if (loadState === "loading") {
     return (
       <div style={{ padding: "3rem", textAlign: "center", color: "#8A8578", fontFamily: "system-ui, sans-serif" }}>
         読み込み中...
@@ -56,17 +81,34 @@ export default function App() {
     );
   }
 
+  if (loadState === "error") {
+    return (
+      <div style={{ padding: "3rem", textAlign: "center", fontFamily: "system-ui, sans-serif" }}>
+        <p style={{ color: "#993C1D", marginBottom: 16, fontSize: 14 }}>
+          データの読み込みに失敗しました。{loadError}
+        </p>
+        <button onClick={loadAll}
+          style={{
+            padding: "8px 20px", borderRadius: 8, border: "1px solid #2D4A3E",
+            background: "white", color: "#2D4A3E", cursor: "pointer", fontSize: 14,
+          }}>
+          再読み込み
+        </button>
+      </div>
+    );
+  }
+
   if (view.screen === "detail") {
-    const artist = data.artists.find((a) => a.id === view.artistId);
+    const artist = artists.find((a) => a.id === view.artistId);
     if (artist) {
-      const sightings = data.sightings.filter((s) => s.artistId === artist.id);
+      const artistSightings = sightings.filter((s) => s.artistId === artist.id);
       return (
         <ArtistDetailScreen
           artist={artist}
-          sightings={sightings}
+          sightings={artistSightings}
           onBack={() => setView({ screen: "list" })}
           onUpdateArtist={(fields) => updateArtist(artist.id, fields)}
-          onDeleteArtist={() => { deleteArtist(artist.id); setView({ screen: "list" }); }}
+          onDeleteArtist={async () => { await deleteArtist(artist.id); setView({ screen: "list" }); }}
           onAddSighting={(fields) => addSighting(artist.id, fields)}
           onUpdateSighting={updateSighting}
           onDeleteSighting={deleteSighting}
@@ -78,10 +120,13 @@ export default function App() {
 
   return (
     <ArtistListScreen
-      artists={data.artists}
-      sightings={data.sightings}
+      artists={artists}
+      sightings={sightings}
       onOpenArtist={(id) => setView({ screen: "detail", artistId: id })}
-      onAddArtist={(fields) => setView({ screen: "detail", artistId: addArtist(fields) })}
+      onAddArtist={async (fields) => {
+        const id = await addArtist(fields);
+        setView({ screen: "detail", artistId: id });
+      }}
     />
   );
 }

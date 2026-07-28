@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { RANK_OPTIONS } from "./constants.js";
-import { fetchYoutubeTitle } from "./youtubeOEmbed.js";
 
 const EMPTY_ARTIST_FORM = {
   name: "", genre: "", spotifyUrl: "", youtubeUrl: "", officialUrl: "", memo: "",
@@ -20,29 +19,29 @@ function latestSighting(sightings) {
 export default function ArtistListScreen({ artists, sightings, onOpenArtist, onAddArtist }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_ARTIST_FORM);
-  const [suggesting, setSuggesting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
   const [eventFilter, setEventFilter] = useState("all");
   const [sortBy, setSortBy] = useState("rank");
 
   const sightingsByArtist = (artistId) => sightings.filter((s) => s.artistId === artistId);
   const events = Array.from(new Set(sightings.map((s) => s.eventName).filter(Boolean)));
 
-  const handleYoutubeBlur = async () => {
-    const url = form.youtubeUrl.trim();
-    if (!url || form.name.trim()) return;
-    setSuggesting(true);
-    const title = await fetchYoutubeTitle(url);
-    setSuggesting(false);
-    if (title) setForm((f) => (f.name.trim() ? f : { ...f, name: title }));
-  };
+  const canSubmit = form.name.trim().length > 0 && !submitting;
 
-  const canSubmit = form.name.trim().length > 0;
-
-  const handleSubmit = () => {
-    if (!canSubmit) return;
-    onAddArtist({ ...form, name: form.name.trim() });
-    setForm(EMPTY_ARTIST_FORM);
-    setShowForm(false);
+  const handleSubmit = async () => {
+    if (!form.name.trim() || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onAddArtist({ ...form, name: form.name.trim() });
+      setForm(EMPTY_ARTIST_FORM);
+      setShowForm(false);
+    } catch (e) {
+      setError(e.message || "登録に失敗しました。もう一度お試しください。");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const filteredArtists = artists.filter((a) => {
@@ -82,7 +81,7 @@ export default function ArtistListScreen({ artists, sightings, onOpenArtist, onA
             気になるアーティストメモ
           </h2>
           <button
-            onClick={() => { setForm(EMPTY_ARTIST_FORM); setShowForm(!showForm); }}
+            onClick={() => { setForm(EMPTY_ARTIST_FORM); setError(null); setShowForm(!showForm); }}
             style={{
               padding: "8px 16px", borderRadius: 24, border: "1px solid rgba(245,243,236,0.4)",
               background: showForm ? "rgba(245,243,236,0.15)" : "#D9772E",
@@ -153,34 +152,34 @@ export default function ArtistListScreen({ artists, sightings, onOpenArtist, onA
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <input type="text" placeholder="アーティスト名" value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
+                disabled={submitting}
                 style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
 
               <input type="text" placeholder="ジャンル（任意）" value={form.genre}
                 onChange={(e) => setForm({ ...form, genre: e.target.value })}
+                disabled={submitting}
                 style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
 
-              <div>
-                <input type="text" placeholder="YouTubeリンク（任意）" value={form.youtubeUrl}
-                  onChange={(e) => setForm({ ...form, youtubeUrl: e.target.value })}
-                  onBlur={handleYoutubeBlur}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14, boxSizing: "border-box" }} />
-                {suggesting && (
-                  <div style={{ fontSize: 11, color: "#8A8578", marginTop: 4 }}>
-                    動画タイトルからアーティスト名を取得中...
-                  </div>
-                )}
-              </div>
+              <input type="text" placeholder="YouTubeリンク（任意）" value={form.youtubeUrl}
+                onChange={(e) => setForm({ ...form, youtubeUrl: e.target.value })}
+                disabled={submitting}
+                style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
 
               <input type="text" placeholder="Spotifyリンク（任意）" value={form.spotifyUrl}
                 onChange={(e) => setForm({ ...form, spotifyUrl: e.target.value })}
+                disabled={submitting}
                 style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
               <input type="text" placeholder="公式サイトリンク（任意）" value={form.officialUrl}
                 onChange={(e) => setForm({ ...form, officialUrl: e.target.value })}
+                disabled={submitting}
                 style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
 
               <textarea placeholder="プロフィールメモ（任意）" value={form.memo} rows={3}
                 onChange={(e) => setForm({ ...form, memo: e.target.value })}
+                disabled={submitting}
                 style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14, resize: "vertical", fontFamily: "inherit" }} />
+
+              {error && <div style={{ color: "#993C1D", fontSize: 12 }}>{error}</div>}
 
               <button onClick={handleSubmit} disabled={!canSubmit}
                 style={{
@@ -189,7 +188,7 @@ export default function ArtistListScreen({ artists, sightings, onOpenArtist, onA
                   color: "white", cursor: canSubmit ? "pointer" : "not-allowed",
                   fontWeight: 500,
                 }}>
-                登録する
+                {submitting ? "登録中..." : "登録する"}
               </button>
             </div>
           </div>
