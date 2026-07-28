@@ -1,21 +1,5 @@
 import { useState, useEffect } from "react";
 
-const STAGES = [
-  { value: "green", label: "GREEN STAGE", color: "#1D9E75" },
-  { value: "white", label: "WHITE STAGE", color: "#5F5E5A" },
-  { value: "red", label: "RED MARQUEE", color: "#993C1D" },
-  { value: "field", label: "FIELD OF HEAVEN", color: "#534AB7" },
-  { value: "orange", label: "ORANGE CAFE", color: "#854F0B" },
-  { value: "gypsy", label: "GYPSY AVALON", color: "#993556" },
-];
-
-const DAYS = [
-  { value: "1", label: "DAY 1" },
-  { value: "2", label: "DAY 2" },
-  { value: "3", label: "DAY 3" },
-  { value: "", label: "未定" },
-];
-
 const RANK_OPTIONS = [
   { value: 5, label: "殿堂入り", color: "#D9772E" },
   { value: 4, label: "また観たい", color: "#0F6E56" },
@@ -23,17 +7,53 @@ const RANK_OPTIONS = [
   { value: 2, label: "チェック中", color: "#5F5E5A" },
 ];
 
-const STORAGE_KEY = "fujirock:artists:v1";
+const STORAGE_KEY = "artist-memo:artists:v2";
 const EMPTY_FORM = {
-  name: "", memo: "", stage: "green", day: "1", time: "",
+  name: "", memo: "", event: "", stage: "", day: "",
   spotify: "", youtube: "", rank: 3,
 };
+
+// v1 was Fuji Rock-only: fixed stage slugs, fixed DAY 1-3, and a start time.
+// Migrating to v2 (freeform event/stage/day, no time) must not lose that data.
+const LEGACY_STORAGE_KEY = "fujirock:artists:v1";
+const LEGACY_EVENT_NAME = "FUJI ROCK FESTIVAL";
+const LEGACY_STAGE_LABELS = {
+  green: "GREEN STAGE",
+  white: "WHITE STAGE",
+  red: "RED MARQUEE",
+  field: "FIELD OF HEAVEN",
+  orange: "ORANGE CAFE",
+  gypsy: "GYPSY AVALON",
+};
+const LEGACY_DAY_LABELS = { 1: "DAY 1", 2: "DAY 2", 3: "DAY 3" };
+
+function migrateLegacyArtist(a) {
+  return {
+    id: a.id,
+    name: a.name,
+    memo: a.memo || "",
+    event: LEGACY_EVENT_NAME,
+    stage: LEGACY_STAGE_LABELS[a.stage] || a.stage || "",
+    day: LEGACY_DAY_LABELS[a.day] || "",
+    spotify: a.spotify || "",
+    youtube: a.youtube || "",
+    rank: a.rank ?? 3,
+  };
+}
 
 // localStorage helpers (swap these out later if moving to a backend)
 function loadArtists() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (raw) return JSON.parse(raw);
+
+    const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacyRaw) {
+      const migrated = JSON.parse(legacyRaw).map(migrateLegacyArtist);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+    return [];
   } catch (e) {
     console.error("Failed to load from localStorage", e);
     return [];
@@ -53,7 +73,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [dayFilter, setDayFilter] = useState("all");
+  const [eventFilter, setEventFilter] = useState("all");
   const [sortBy, setSortBy] = useState("rank");
   const [form, setForm] = useState(EMPTY_FORM);
 
@@ -73,8 +93,16 @@ export default function App() {
     setShowForm(false);
   };
 
+  const openAddForm = () => {
+    // prefill with the most recently used event so adding several artists
+    // for the same event in a row doesn't require retyping it each time
+    setForm({ ...EMPTY_FORM, event: artists[0]?.event || "" });
+    setEditingId(null);
+    setShowForm(true);
+  };
+
   const handleSubmit = () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim() || !form.event.trim()) return;
     if (editingId) persist(artists.map((a) => (a.id === editingId ? { ...a, ...form } : a)));
     else persist([{ id: Date.now().toString(), ...form }, ...artists]);
     resetForm();
@@ -89,18 +117,19 @@ export default function App() {
   const handleDelete = (id) => persist(artists.filter((a) => a.id !== id));
   const search = (q) => window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`, "_blank");
 
-  const filtered = artists.filter((a) => dayFilter === "all" || a.day === dayFilter);
+  const events = Array.from(new Set(artists.map((a) => a.event).filter(Boolean)));
+
+  const filtered = artists.filter((a) => eventFilter === "all" || a.event === eventFilter);
   const sorted = [...filtered].sort((a, b) =>
-    sortBy === "rank" ? b.rank - a.rank : (a.time || "").localeCompare(b.time || "")
+    sortBy === "rank" ? b.rank - a.rank : a.name.localeCompare(b.name, "ja")
   );
 
-  const stageInfo = (v) => STAGES.find((s) => s.value === v);
-  const dayLabel = (v) => (DAYS.find((d) => d.value === v) || {}).label || "未定";
+  const canSubmit = form.name.trim() && form.event.trim();
 
   if (loading) {
     return (
       <div style={{ padding: "3rem", textAlign: "center", color: "#8A8578", fontFamily: "system-ui, sans-serif" }}>
-        タイムテーブルを読み込み中...
+        読み込み中...
       </div>
     );
   }
@@ -123,14 +152,14 @@ export default function App() {
           margin: 0, fontSize: 11, letterSpacing: "0.15em", color: "#9BC7A0",
           fontWeight: 500, textTransform: "uppercase",
         }}>
-          FUJI ROCK FESTIVAL
+          EVENT ARTIST MEMO
         </p>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 6 }}>
           <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: "#F5F3EC", letterSpacing: "-0.01em" }}>
             気になるアーティストメモ
           </h2>
           <button
-            onClick={() => { resetForm(); setShowForm(!showForm); }}
+            onClick={() => { if (showForm) resetForm(); else openAddForm(); }}
             style={{
               padding: "8px 16px", borderRadius: 24, border: "1px solid rgba(245,243,236,0.4)",
               background: showForm ? "rgba(245,243,236,0.15)" : "#D9772E",
@@ -149,24 +178,24 @@ export default function App() {
         {artists.length > 0 && (
           <div style={{ display: "flex", gap: 16, marginBottom: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <button onClick={() => setDayFilter("all")}
+              <button onClick={() => setEventFilter("all")}
                 style={{
                   padding: "5px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
-                  border: dayFilter === "all" ? "2px solid #2D4A3E" : "1px solid #D3CFC1",
-                  background: "white", color: dayFilter === "all" ? "#2D4A3E" : "#6B6656",
-                  fontWeight: dayFilter === "all" ? 600 : 400,
+                  border: eventFilter === "all" ? "2px solid #2D4A3E" : "1px solid #D3CFC1",
+                  background: "white", color: eventFilter === "all" ? "#2D4A3E" : "#6B6656",
+                  fontWeight: eventFilter === "all" ? 600 : 400,
                 }}>
                 すべて
               </button>
-              {DAYS.filter((d) => d.value).map((d) => (
-                <button key={d.value} onClick={() => setDayFilter(d.value)}
+              {events.map((ev) => (
+                <button key={ev} onClick={() => setEventFilter(ev)}
                   style={{
                     padding: "5px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
-                    border: dayFilter === d.value ? "2px solid #2D4A3E" : "1px solid #D3CFC1",
-                    background: "white", color: dayFilter === d.value ? "#2D4A3E" : "#6B6656",
-                    fontWeight: dayFilter === d.value ? 600 : 400,
+                    border: eventFilter === ev ? "2px solid #2D4A3E" : "1px solid #D3CFC1",
+                    background: "white", color: eventFilter === ev ? "#2D4A3E" : "#6B6656",
+                    fontWeight: eventFilter === ev ? 600 : 400,
                   }}>
-                  {d.label}
+                  {ev}
                 </button>
               ))}
             </div>
@@ -180,13 +209,13 @@ export default function App() {
                 }}>
                 評価順
               </button>
-              <button onClick={() => setSortBy("time")}
+              <button onClick={() => setSortBy("name")}
                 style={{
                   padding: "5px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
-                  border: sortBy === "time" ? "1px solid #6B5744" : "1px solid #D3CFC1",
-                  background: sortBy === "time" ? "#EDE6D8" : "white", color: "#6B5744",
+                  border: sortBy === "name" ? "1px solid #6B5744" : "1px solid #D3CFC1",
+                  background: sortBy === "name" ? "#EDE6D8" : "white", color: "#6B5744",
                 }}>
-                時間順
+                名前順
               </button>
             </div>
           </div>
@@ -203,48 +232,21 @@ export default function App() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
 
+              <input type="text" placeholder="イベント名（例: フジロックフェスティバル）" value={form.event}
+                onChange={(e) => setForm({ ...form, event: e.target.value })}
+                style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
+
               <textarea placeholder="魅力メモ・観たい理由など" value={form.memo} rows={3}
                 onChange={(e) => setForm({ ...form, memo: e.target.value })}
                 style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14, resize: "vertical", fontFamily: "inherit" }} />
 
-              <div>
-                <div style={{ fontSize: 12, color: "#6B6656", marginBottom: 6 }}>ステージ</div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {STAGES.map((s) => (
-                    <button key={s.value} onClick={() => setForm({ ...form, stage: s.value })}
-                      style={{
-                        padding: "5px 10px", borderRadius: 20, fontSize: 11.5, cursor: "pointer",
-                        border: form.stage === s.value ? `2px solid ${s.color}` : "1px solid #D3CFC1",
-                        background: "white", color: form.stage === s.value ? s.color : "#6B6656",
-                        fontWeight: form.stage === s.value ? 600 : 400,
-                      }}>
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div style={{ display: "flex", gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, color: "#6B6656", marginBottom: 6 }}>日程</div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {DAYS.map((d) => (
-                      <button key={d.value} onClick={() => setForm({ ...form, day: d.value })}
-                        style={{
-                          flex: 1, padding: "8px 4px", borderRadius: 8, fontSize: 12, cursor: "pointer",
-                          border: form.day === d.value ? "2px solid #2D4A3E" : "1px solid #D3CFC1",
-                          background: "white", color: form.day === d.value ? "#2D4A3E" : "#6B6656",
-                        }}>
-                        {d.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, color: "#6B6656", marginBottom: 6 }}>開始時刻</div>
-                  <input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })}
-                    style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
-                </div>
+                <input type="text" placeholder="ステージ（任意）" value={form.stage}
+                  onChange={(e) => setForm({ ...form, stage: e.target.value })}
+                  style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
+                <input type="text" placeholder="日程（任意）" value={form.day}
+                  onChange={(e) => setForm({ ...form, day: e.target.value })}
+                  style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
               </div>
 
               <input type="text" placeholder="Spotifyリンク（任意）" value={form.spotify}
@@ -270,11 +272,11 @@ export default function App() {
                 </div>
               </div>
 
-              <button onClick={handleSubmit} disabled={!form.name.trim()}
+              <button onClick={handleSubmit} disabled={!canSubmit}
                 style={{
                   padding: "11px", borderRadius: 8, border: "none", fontSize: 14, marginTop: 4,
-                  background: form.name.trim() ? "#2D4A3E" : "#D3CFC1",
-                  color: "white", cursor: form.name.trim() ? "pointer" : "not-allowed",
+                  background: canSubmit ? "#2D4A3E" : "#D3CFC1",
+                  color: "white", cursor: canSubmit ? "pointer" : "not-allowed",
                   fontWeight: 500,
                 }}>
                 {editingId ? "更新する" : "登録する"}
@@ -288,16 +290,15 @@ export default function App() {
           <div style={{ textAlign: "center", padding: "3rem 1rem", color: "#8A8578", fontSize: 14 }}>
             {artists.length === 0
               ? "まだ登録がありません。「+ 追加」から気になるアーティストを記録しましょう。"
-              : "この日程のアーティストはまだ登録がありません。"}
+              : "このイベントのアーティストはまだ登録がありません。"}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {sorted.map((artist) => {
               const rankInfo = RANK_OPTIONS.find((r) => r.value === artist.rank);
-              const stage = stageInfo(artist.stage);
               return (
                 <div key={artist.id} style={{
-                  border: "1px solid #E3DFD1", borderLeft: `4px solid ${stage ? stage.color : "#B4B2A9"}`,
+                  border: "1px solid #E3DFD1", borderLeft: "4px solid #6B5744",
                   borderRadius: 10, padding: "1rem 1.1rem", background: "white",
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -314,9 +315,9 @@ export default function App() {
                         )}
                       </div>
                       <p style={{ fontSize: 12, color: "#8A8578", margin: "0 0 6px" }}>
-                        {stage && <span style={{ color: stage.color, fontWeight: 500 }}>{stage.label}</span>}
-                        {" ・ "}{dayLabel(artist.day)}
-                        {artist.time && ` ・ ${artist.time}`}
+                        <span style={{ color: "#2D4A3E", fontWeight: 500 }}>{artist.event}</span>
+                        {artist.stage && ` ・ ${artist.stage}`}
+                        {artist.day && ` ・ ${artist.day}`}
                       </p>
                       {artist.memo && (
                         <p style={{ fontSize: 13, color: "#5F5A4A", margin: "4px 0 8px", lineHeight: 1.6 }}>
@@ -338,7 +339,7 @@ export default function App() {
                           style={{ border: "none", background: "none", color: "#185FA5", cursor: "pointer", fontSize: 12, padding: 0 }}>
                           公式情報 ↗
                         </button>
-                        <button onClick={() => search(`${artist.name} セットリスト フジロック`)}
+                        <button onClick={() => search(`${artist.name} セットリスト ${artist.event}`)}
                           style={{ border: "none", background: "none", color: "#534AB7", cursor: "pointer", fontSize: 12, padding: 0 }}>
                           セットリスト ↗
                         </button>
