@@ -15,19 +15,29 @@ APIのベースURLは `src/api.js` に定義。
 ## データ構造
 
 - **artist**（アーティストのプロフィール）: id, name, spotifyUrl, youtubeUrl, officialUrl, genre, memo, createdAt
-- **sighting**（1回分の視聴記録）: id, artistId, eventName（自由入力）, date, stage（自由入力）, rank, favoriteSong, memo
+- **sighting**（1回分の視聴記録）: id, artistId, eventName（自由入力）, date, stage（自由入力）, rank, favoriteSong, memo, registeredBy
 - 1つの artist は複数の sighting を持てる
+
+## 登録者（ゆうき / みさき）
+
+家族2人で共有して使うため、「自分の名前」をローカルに保存して視聴記録に紐づける。
+
+- 初回起動時に「ゆうき」「みさき」のどちらかを選ぶ画面が出る（選択は`localStorage`に保存され、次回以降は聞かれない）
+- ヘッダー右上の設定アイコン（⚙）からいつでも変更できる
+- sightingを新規作成すると、選んでいる名前が`registeredBy`として自動でAPIに送信される（編集時は元の`registeredBy`を保持する）
+- 一覧画面に「すべて（ゆうき+みさき）」「ゆうきのみ」「みさきのみ」の絞り込みボタンがあり、対象のsightingを持つアーティストだけを表示できる
+- アーティストカード・視聴履歴の各カードに、登録者バッジを表示する
 
 ## 画面構成
 
 1. **一覧画面**: 登録済みアーティストをカード表示。タップすると詳細画面に遷移
-   - イベント（sightingのeventName）での絞り込み、評価順・名前順での並び替え
+   - イベント（sightingのeventName）・登録者での絞り込み、評価順・名前順での並び替え
    - 「+ 追加」でアーティストのプロフィールを新規登録（登録後は自動で詳細画面へ）
 2. **アーティスト詳細画面**:
    - ヘッダー: 名前、ジャンル、Spotify / YouTube / 公式サイトへのリンク
    - サマリー: 観た回数、最新の評価（sightingを日付降順に並べた先頭のrank）、直近の推し曲
    - プロフィールメモ
-   - 視聴履歴: sightingを日付の新しい順に一覧表示。イベント名・日付・ステージ・評価・推し曲・メモを表示
+   - 視聴履歴: sightingを日付の新しい順に一覧表示。イベント名・日付・ステージ・評価・推し曲・メモ・登録者バッジを表示
    - 「+ 記録を追加」でsightingをその場で追加・編集
    - 「編集」でプロフィール編集、「削除」でアーティストごと削除（sightingも連動して削除）
 

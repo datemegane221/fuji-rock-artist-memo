@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { RANK_OPTIONS } from "./constants.js";
+import { RANK_OPTIONS, USERS } from "./constants.js";
 
 const EMPTY_SIGHTING_FORM = { eventName: "", date: "", stage: "", rank: 3, favoriteSong: "", memo: "" };
 const EMPTY_PROFILE_FORM = { name: "", genre: "", spotifyUrl: "", youtubeUrl: "", officialUrl: "", memo: "" };
@@ -25,6 +25,7 @@ export default function ArtistDetailScreen({
 
   const [showSightingForm, setShowSightingForm] = useState(false);
   const [editingSightingId, setEditingSightingId] = useState(null);
+  const [editingSightingRegisteredBy, setEditingSightingRegisteredBy] = useState(null);
   const [sightingForm, setSightingForm] = useState(EMPTY_SIGHTING_FORM);
   const [sightingSubmitting, setSightingSubmitting] = useState(false);
   const [sightingError, setSightingError] = useState(null);
@@ -67,6 +68,7 @@ export default function ArtistDetailScreen({
   const openAddSighting = () => {
     setSightingForm({ ...EMPTY_SIGHTING_FORM, eventName: sorted[0]?.eventName || "" });
     setEditingSightingId(null);
+    setEditingSightingRegisteredBy(null);
     setSightingError(null);
     setShowSightingForm(true);
   };
@@ -77,6 +79,9 @@ export default function ArtistDetailScreen({
       rank: s.rank ?? 3, favoriteSong: s.favoriteSong || "", memo: s.memo || "",
     });
     setEditingSightingId(s.id);
+    // editing has no registeredBy field of its own - carry the original
+    // value forward so the update doesn't blank it out
+    setEditingSightingRegisteredBy(s.registeredBy ?? null);
     setSightingError(null);
     setShowSightingForm(true);
   };
@@ -86,10 +91,14 @@ export default function ArtistDetailScreen({
     setSightingSubmitting(true);
     setSightingError(null);
     try {
-      if (editingSightingId) await onUpdateSighting(editingSightingId, sightingForm);
-      else await onAddSighting(sightingForm);
+      if (editingSightingId) {
+        await onUpdateSighting(editingSightingId, { ...sightingForm, registeredBy: editingSightingRegisteredBy });
+      } else {
+        await onAddSighting(sightingForm);
+      }
       setShowSightingForm(false);
       setEditingSightingId(null);
+      setEditingSightingRegisteredBy(null);
       setSightingForm(EMPTY_SIGHTING_FORM);
     } catch (e) {
       setSightingError(e.message || "保存に失敗しました。もう一度お試しください。");
@@ -345,6 +354,7 @@ export default function ArtistDetailScreen({
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {sorted.map((s) => {
               const rankInfo = RANK_OPTIONS.find((r) => r.value === s.rank);
+              const userInfo = USERS.find((u) => u.value === s.registeredBy);
               const isDeleting = deletingSightingId === s.id;
               return (
                 <div key={s.id} style={{ border: "1px solid #E3DFD1", borderLeft: "4px solid #6B5744", borderRadius: 10, padding: "1rem 1.1rem", background: "white", opacity: isDeleting ? 0.6 : 1 }}>
@@ -358,6 +368,14 @@ export default function ArtistDetailScreen({
                             background: rankInfo.color + "22", color: rankInfo.color, fontWeight: 500,
                           }}>
                             {rankInfo.label}
+                          </span>
+                        )}
+                        {userInfo && (
+                          <span style={{
+                            fontSize: 11, padding: "2px 8px", borderRadius: 10,
+                            background: userInfo.color + "22", color: userInfo.color, fontWeight: 500,
+                          }}>
+                            {userInfo.label}
                           </span>
                         )}
                       </div>

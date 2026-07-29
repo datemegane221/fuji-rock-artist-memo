@@ -1,14 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import * as api from "./api.js";
+import { loadCurrentUser, saveCurrentUser } from "./currentUser.js";
+import ProfilePickerScreen from "./ProfilePickerScreen.jsx";
 import ArtistListScreen from "./ArtistListScreen.jsx";
 import ArtistDetailScreen from "./ArtistDetailScreen.jsx";
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => loadCurrentUser());
   const [artists, setArtists] = useState([]);
   const [sightings, setSightings] = useState([]);
   const [loadState, setLoadState] = useState("loading"); // loading | loaded | error
   const [loadError, setLoadError] = useState(null);
   const [view, setView] = useState({ screen: "list" });
+
+  const selectCurrentUser = (name) => {
+    saveCurrentUser(name);
+    setCurrentUser(name);
+  };
 
   // Guards against a stale response clobbering a newer one - e.g. StrictMode's
   // double effect invocation in dev, or a fast double-click on "再読み込み".
@@ -59,7 +67,7 @@ export default function App() {
   };
 
   const addSighting = async (artistId, fields) => {
-    await api.createSighting({ ...fields, artistId });
+    await api.createSighting({ ...fields, artistId, registeredBy: currentUser });
     await refreshSightings();
   };
 
@@ -72,6 +80,20 @@ export default function App() {
     await api.deleteSighting(id);
     await refreshSightings();
   };
+
+  if (!currentUser) {
+    return <ProfilePickerScreen onSelect={selectCurrentUser} />;
+  }
+
+  if (view.screen === "settings") {
+    return (
+      <ProfilePickerScreen
+        currentUser={currentUser}
+        onSelect={(name) => { selectCurrentUser(name); setView({ screen: "list" }); }}
+        onCancel={() => setView({ screen: "list" })}
+      />
+    );
+  }
 
   if (loadState === "loading") {
     return (
@@ -122,11 +144,13 @@ export default function App() {
     <ArtistListScreen
       artists={artists}
       sightings={sightings}
+      currentUser={currentUser}
       onOpenArtist={(id) => setView({ screen: "detail", artistId: id })}
       onAddArtist={async (fields) => {
         const id = await addArtist(fields);
         setView({ screen: "detail", artistId: id });
       }}
+      onOpenSettings={() => setView({ screen: "settings" })}
     />
   );
 }

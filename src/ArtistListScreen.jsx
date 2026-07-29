@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { RANK_OPTIONS } from "./constants.js";
+import { RANK_OPTIONS, USERS } from "./constants.js";
 
 const EMPTY_ARTIST_FORM = {
   name: "", genre: "", spotifyUrl: "", youtubeUrl: "", officialUrl: "", memo: "",
@@ -16,12 +16,13 @@ function latestSighting(sightings) {
   })[0];
 }
 
-export default function ArtistListScreen({ artists, sightings, onOpenArtist, onAddArtist }) {
+export default function ArtistListScreen({ artists, sightings, onOpenArtist, onAddArtist, onOpenSettings, currentUser }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_ARTIST_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [eventFilter, setEventFilter] = useState("all");
+  const [registeredByFilter, setRegisteredByFilter] = useState("all");
   const [sortBy, setSortBy] = useState("rank");
 
   const sightingsByArtist = (artistId) => sightings.filter((s) => s.artistId === artistId);
@@ -45,8 +46,10 @@ export default function ArtistListScreen({ artists, sightings, onOpenArtist, onA
   };
 
   const filteredArtists = artists.filter((a) => {
-    if (eventFilter === "all") return true;
-    return sightingsByArtist(a.id).some((s) => s.eventName === eventFilter);
+    const artistSightings = sightingsByArtist(a.id);
+    if (eventFilter !== "all" && !artistSightings.some((s) => s.eventName === eventFilter)) return false;
+    if (registeredByFilter !== "all" && !artistSightings.some((s) => s.registeredBy === registeredByFilter)) return false;
+    return true;
   });
 
   const sorted = [...filteredArtists].sort((a, b) => {
@@ -80,17 +83,28 @@ export default function ArtistListScreen({ artists, sightings, onOpenArtist, onA
           <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: "#F5F3EC", letterSpacing: "-0.01em" }}>
             気になるアーティストメモ
           </h2>
-          <button
-            onClick={() => { setForm(EMPTY_ARTIST_FORM); setError(null); setShowForm(!showForm); }}
-            style={{
-              padding: "8px 16px", borderRadius: 24, border: "1px solid rgba(245,243,236,0.4)",
-              background: showForm ? "rgba(245,243,236,0.15)" : "#D9772E",
-              color: "#F5F3EC", cursor: "pointer", fontSize: 13, fontWeight: 500,
-              whiteSpace: "nowrap", flexShrink: 0,
-            }}
-          >
-            {showForm ? "閉じる" : "+ 追加"}
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+            <button onClick={onOpenSettings} title={currentUser ? `ログイン中: ${currentUser}` : "設定"}
+              style={{
+                width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(245,243,236,0.4)",
+                background: "rgba(245,243,236,0.15)", color: "#F5F3EC", cursor: "pointer", fontSize: 15,
+                display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+              }}
+            >
+              ⚙
+            </button>
+            <button
+              onClick={() => { setForm(EMPTY_ARTIST_FORM); setError(null); setShowForm(!showForm); }}
+              style={{
+                padding: "8px 16px", borderRadius: 24, border: "1px solid rgba(245,243,236,0.4)",
+                background: showForm ? "rgba(245,243,236,0.15)" : "#D9772E",
+                color: "#F5F3EC", cursor: "pointer", fontSize: 13, fontWeight: 500,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {showForm ? "閉じる" : "+ 追加"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -118,6 +132,29 @@ export default function ArtistListScreen({ artists, sightings, onOpenArtist, onA
                     fontWeight: eventFilter === ev ? 600 : 400,
                   }}>
                   {ev}
+                </button>
+              ))}
+            </div>
+            <div style={{ width: 1, height: 16, background: "#D3CFC1" }} />
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <button onClick={() => setRegisteredByFilter("all")}
+                style={{
+                  padding: "5px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
+                  border: registeredByFilter === "all" ? "2px solid #2D4A3E" : "1px solid #D3CFC1",
+                  background: "white", color: registeredByFilter === "all" ? "#2D4A3E" : "#6B6656",
+                  fontWeight: registeredByFilter === "all" ? 600 : 400,
+                }}>
+                すべて（ゆうき+みさき）
+              </button>
+              {USERS.map((u) => (
+                <button key={u.value} onClick={() => setRegisteredByFilter(u.value)}
+                  style={{
+                    padding: "5px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
+                    border: registeredByFilter === u.value ? `2px solid ${u.color}` : "1px solid #D3CFC1",
+                    background: "white", color: registeredByFilter === u.value ? u.color : "#6B6656",
+                    fontWeight: registeredByFilter === u.value ? 600 : 400,
+                  }}>
+                  {u.label}のみ
                 </button>
               ))}
             </div>
@@ -207,6 +244,7 @@ export default function ArtistListScreen({ artists, sightings, onOpenArtist, onA
               const artistSightings = sightingsByArtist(artist.id);
               const latest = latestSighting(artistSightings);
               const rankInfo = latest ? RANK_OPTIONS.find((r) => r.value === latest.rank) : null;
+              const registrants = USERS.filter((u) => artistSightings.some((s) => s.registeredBy === u.value));
               return (
                 <button key={artist.id} onClick={() => onOpenArtist(artist.id)}
                   style={{
@@ -229,6 +267,14 @@ export default function ArtistListScreen({ artists, sightings, onOpenArtist, onA
                         {rankInfo.label}
                       </span>
                     )}
+                    {registrants.map((u) => (
+                      <span key={u.value} style={{
+                        fontSize: 11, padding: "2px 8px", borderRadius: 10,
+                        background: u.color + "22", color: u.color, fontWeight: 500,
+                      }}>
+                        {u.label}
+                      </span>
+                    ))}
                   </div>
                   <p style={{ fontSize: 12, color: "#8A8578", margin: "0 0 6px" }}>
                     {artistSightings.length > 0
