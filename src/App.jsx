@@ -12,6 +12,13 @@ export default function App() {
   const [loadState, setLoadState] = useState("loading"); // loading | loaded | error
   const [loadError, setLoadError] = useState(null);
   const [view, setView] = useState({ screen: "list" });
+  // "all" | a USERS value - lifted up (rather than kept in ArtistListScreen)
+  // so it also narrows the sighting history shown on the detail screen.
+  const [registeredByFilter, setRegisteredByFilter] = useState("all");
+
+  const visibleSightings = registeredByFilter === "all"
+    ? sightings
+    : sightings.filter((s) => s.registeredBy === registeredByFilter);
 
   const selectCurrentUser = (name) => {
     saveCurrentUser(name);
@@ -67,7 +74,9 @@ export default function App() {
   };
 
   const addSighting = async (artistId, fields) => {
-    await api.createSighting({ ...fields, artistId, registeredBy: currentUser });
+    // fields.registeredBy comes from the sighting form itself (defaults to
+    // currentUser but is editable, to support recording on a family member's behalf)
+    await api.createSighting({ ...fields, artistId });
     await refreshSightings();
   };
 
@@ -123,11 +132,13 @@ export default function App() {
   if (view.screen === "detail") {
     const artist = artists.find((a) => a.id === view.artistId);
     if (artist) {
-      const artistSightings = sightings.filter((s) => s.artistId === artist.id);
+      const artistSightings = visibleSightings.filter((s) => s.artistId === artist.id);
       return (
         <ArtistDetailScreen
           artist={artist}
           sightings={artistSightings}
+          currentUser={currentUser}
+          registeredByFilter={registeredByFilter}
           onBack={() => setView({ screen: "list" })}
           onUpdateArtist={(fields) => updateArtist(artist.id, fields)}
           onDeleteArtist={async () => { await deleteArtist(artist.id); setView({ screen: "list" }); }}
@@ -143,8 +154,10 @@ export default function App() {
   return (
     <ArtistListScreen
       artists={artists}
-      sightings={sightings}
+      sightings={visibleSightings}
       currentUser={currentUser}
+      registeredByFilter={registeredByFilter}
+      onChangeRegisteredByFilter={setRegisteredByFilter}
       onOpenArtist={(id) => setView({ screen: "detail", artistId: id })}
       onAddArtist={async (fields) => {
         const id = await addArtist(fields);

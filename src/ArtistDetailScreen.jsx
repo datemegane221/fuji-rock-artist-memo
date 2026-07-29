@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { RANK_OPTIONS, USERS } from "./constants.js";
 
-const EMPTY_SIGHTING_FORM = { eventName: "", date: "", stage: "", rank: 3, favoriteSong: "", memo: "" };
+const EMPTY_SIGHTING_FORM = { eventName: "", date: "", stage: "", rank: 3, favoriteSong: "", memo: "", registeredBy: null };
 const EMPTY_PROFILE_FORM = { name: "", genre: "", spotifyUrl: "", youtubeUrl: "", officialUrl: "", memo: "" };
 
 function sortByDateDesc(sightings) {
@@ -15,7 +15,7 @@ function sortByDateDesc(sightings) {
 }
 
 export default function ArtistDetailScreen({
-  artist, sightings, onBack, onUpdateArtist, onDeleteArtist,
+  artist, sightings, currentUser, registeredByFilter, onBack, onUpdateArtist, onDeleteArtist,
   onAddSighting, onUpdateSighting, onDeleteSighting,
 }) {
   const [showProfileForm, setShowProfileForm] = useState(false);
@@ -25,7 +25,6 @@ export default function ArtistDetailScreen({
 
   const [showSightingForm, setShowSightingForm] = useState(false);
   const [editingSightingId, setEditingSightingId] = useState(null);
-  const [editingSightingRegisteredBy, setEditingSightingRegisteredBy] = useState(null);
   const [sightingForm, setSightingForm] = useState(EMPTY_SIGHTING_FORM);
   const [sightingSubmitting, setSightingSubmitting] = useState(false);
   const [sightingError, setSightingError] = useState(null);
@@ -66,9 +65,10 @@ export default function ArtistDetailScreen({
   };
 
   const openAddSighting = () => {
-    setSightingForm({ ...EMPTY_SIGHTING_FORM, eventName: sorted[0]?.eventName || "" });
+    // defaults to the current user but is editable, to support recording
+    // something on a family member's behalf
+    setSightingForm({ ...EMPTY_SIGHTING_FORM, eventName: sorted[0]?.eventName || "", registeredBy: currentUser ?? null });
     setEditingSightingId(null);
-    setEditingSightingRegisteredBy(null);
     setSightingError(null);
     setShowSightingForm(true);
   };
@@ -77,11 +77,9 @@ export default function ArtistDetailScreen({
     setSightingForm({
       eventName: s.eventName || "", date: s.date || "", stage: s.stage || "",
       rank: s.rank ?? 3, favoriteSong: s.favoriteSong || "", memo: s.memo || "",
+      registeredBy: s.registeredBy ?? null,
     });
     setEditingSightingId(s.id);
-    // editing has no registeredBy field of its own - carry the original
-    // value forward so the update doesn't blank it out
-    setEditingSightingRegisteredBy(s.registeredBy ?? null);
     setSightingError(null);
     setShowSightingForm(true);
   };
@@ -91,14 +89,10 @@ export default function ArtistDetailScreen({
     setSightingSubmitting(true);
     setSightingError(null);
     try {
-      if (editingSightingId) {
-        await onUpdateSighting(editingSightingId, { ...sightingForm, registeredBy: editingSightingRegisteredBy });
-      } else {
-        await onAddSighting(sightingForm);
-      }
+      if (editingSightingId) await onUpdateSighting(editingSightingId, sightingForm);
+      else await onAddSighting(sightingForm);
       setShowSightingForm(false);
       setEditingSightingId(null);
-      setEditingSightingRegisteredBy(null);
       setSightingForm(EMPTY_SIGHTING_FORM);
     } catch (e) {
       setSightingError(e.message || "保存に失敗しました。もう一度お試しください。");
@@ -268,8 +262,15 @@ export default function ArtistDetailScreen({
         )}
 
         {/* Add / edit sighting */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <h3 style={{ margin: 0, fontSize: 15, color: "#2D4A3E" }}>視聴履歴</h3>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 15, color: "#2D4A3E" }}>視聴履歴</h3>
+            {registeredByFilter && registeredByFilter !== "all" && (
+              <p style={{ margin: "2px 0 0", fontSize: 11, color: "#8A8578" }}>
+                「{USERS.find((u) => u.value === registeredByFilter)?.label}のみ」で絞り込み中
+              </p>
+            )}
+          </div>
           <button onClick={() => (showSightingForm ? setShowSightingForm(false) : openAddSighting())}
             style={{
               padding: "6px 14px", borderRadius: 20, border: "1px solid #2D4A3E", fontSize: 12, cursor: "pointer",
@@ -316,6 +317,22 @@ export default function ArtistDetailScreen({
                         background: "white", color: sightingForm.rank === opt.value ? opt.color : "#6B6656",
                       }}>
                       {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: "#6B6656", marginBottom: 6 }}>登録者</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {USERS.map((u) => (
+                    <button key={u.value} onClick={() => setSightingForm({ ...sightingForm, registeredBy: u.value })}
+                      disabled={sightingSubmitting}
+                      style={{
+                        padding: "6px 12px", borderRadius: 20, fontSize: 13, cursor: "pointer",
+                        border: sightingForm.registeredBy === u.value ? `2px solid ${u.color}` : "1px solid #D3CFC1",
+                        background: "white", color: sightingForm.registeredBy === u.value ? u.color : "#6B6656",
+                      }}>
+                      {u.label}
                     </button>
                   ))}
                 </div>

@@ -16,13 +16,15 @@ function latestSighting(sightings) {
   })[0];
 }
 
-export default function ArtistListScreen({ artists, sightings, onOpenArtist, onAddArtist, onOpenSettings, currentUser }) {
+export default function ArtistListScreen({
+  artists, sightings, onOpenArtist, onAddArtist, onOpenSettings, currentUser,
+  registeredByFilter, onChangeRegisteredByFilter,
+}) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_ARTIST_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [eventFilter, setEventFilter] = useState("all");
-  const [registeredByFilter, setRegisteredByFilter] = useState("all");
   const [sortBy, setSortBy] = useState("rank");
 
   const sightingsByArtist = (artistId) => sightings.filter((s) => s.artistId === artistId);
@@ -45,10 +47,14 @@ export default function ArtistListScreen({ artists, sightings, onOpenArtist, onA
     }
   };
 
+  // `sightings` is already narrowed to the active registeredBy filter (done
+  // in App.jsx so the same filtered set also carries into the detail
+  // screen). So an artist with zero sightings here either has none at all
+  // (fine under "all") or none from the selected person (hide it).
   const filteredArtists = artists.filter((a) => {
     const artistSightings = sightingsByArtist(a.id);
+    if (registeredByFilter !== "all" && artistSightings.length === 0) return false;
     if (eventFilter !== "all" && !artistSightings.some((s) => s.eventName === eventFilter)) return false;
-    if (registeredByFilter !== "all" && !artistSightings.some((s) => s.registeredBy === registeredByFilter)) return false;
     return true;
   });
 
@@ -137,7 +143,7 @@ export default function ArtistListScreen({ artists, sightings, onOpenArtist, onA
             </div>
             <div style={{ width: 1, height: 16, background: "#D3CFC1" }} />
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <button onClick={() => setRegisteredByFilter("all")}
+              <button onClick={() => onChangeRegisteredByFilter("all")}
                 style={{
                   padding: "5px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
                   border: registeredByFilter === "all" ? "2px solid #2D4A3E" : "1px solid #D3CFC1",
@@ -147,7 +153,7 @@ export default function ArtistListScreen({ artists, sightings, onOpenArtist, onA
                 すべて（ゆうき+みさき）
               </button>
               {USERS.map((u) => (
-                <button key={u.value} onClick={() => setRegisteredByFilter(u.value)}
+                <button key={u.value} onClick={() => onChangeRegisteredByFilter(u.value)}
                   style={{
                     padding: "5px 12px", borderRadius: 20, fontSize: 12, cursor: "pointer",
                     border: registeredByFilter === u.value ? `2px solid ${u.color}` : "1px solid #D3CFC1",
