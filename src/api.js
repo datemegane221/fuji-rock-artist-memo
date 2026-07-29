@@ -26,8 +26,12 @@ export function fetchArtists() {
   return getJson(`${BASE_URL}?resource=artists`);
 }
 
-export function fetchSightings() {
-  return getJson(`${BASE_URL}?resource=sightings`);
+export async function fetchSightings() {
+  const data = await getJson(`${BASE_URL}?resource=sightings`);
+  // Notion Select properties always come back as strings (e.g. "5"), but the
+  // app treats rank as a number (RANK_OPTIONS values) everywhere it compares
+  // or sorts - normalize here so nothing downstream has to think about it.
+  return data.map((s) => ({ ...s, rank: s.rank ? Number(s.rank) : s.rank }));
 }
 
 export function createArtist(data) {
