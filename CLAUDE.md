@@ -45,6 +45,7 @@
 - 登録者（ゆうき/みさき）の選択・切り替え（設定アイコン）、sightingへの紐づけ、絞り込みが一覧・詳細両方に伝播
 - YouTubeチャンネルのサムネイル検索・確定・表示（`resource=youtube_thumbnail`）
 - 衣装メモ・衣装写真（撮影 or 写真選択→Canvas APIでリサイズ・圧縮→Base64でアップロード、`resource=costume_photo`）。画像アップロード失敗時もテキストは保存される設計
+- 衣装写真だけの削除（`resource=costume_photo, action=delete`）。sighting本体は残したまま写真のみ削除できる（`deleteCostumePhoto_`参照）
 
 ## 未実装・見送り中
 
