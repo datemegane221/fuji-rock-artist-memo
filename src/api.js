@@ -57,3 +57,8 @@ export function updateSighting(id, data) {
 export function deleteSighting(id) {
   return postJson({ resource: "sighting", action: "delete", id });
 }
+
+// data is { channelId, channelTitle, channelUrl, thumbnailUrl } or null (not found)
+export function fetchYoutubeThumbnail(name) {
+  return getJson(`${BASE_URL}?resource=youtube_thumbnail&name=${encodeURIComponent(name)}`);
+}

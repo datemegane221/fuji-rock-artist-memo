@@ -14,9 +14,18 @@ APIのベースURLは `src/api.js` に定義。
 
 ## データ構造
 
-- **artist**（アーティストのプロフィール）: id, name, spotifyUrl, youtubeUrl, officialUrl, genre, memo, createdAt
+- **artist**（アーティストのプロフィール）: id, name, spotifyUrl, youtubeUrl, officialUrl, genre, memo, thumbnailUrl, createdAt
 - **sighting**（1回分の視聴記録）: id, artistId, eventName（自由入力）, date, stage（自由入力）, rank, favoriteSong, memo, registeredBy
 - 1つの artist は複数の sighting を持てる
+
+## アー写（サムネイル画像）
+
+アーティストの追加・編集フォームに「画像を検索」ボタンがあり、`GET ?resource=youtube_thumbnail&name=...` でYouTubeチャンネルのサムネイルを検索できる。
+
+- 検索中はボタンが「検索中...」になる
+- 見つかった場合はチャンネル名と一緒にプレビュー表示され、「この画像を使う」で確定するまで保存はされない（「使わない」で無視して続行できる）
+- 見つからない場合・APIエラーの場合も、画像なしのままアプリを問題なく使い続けられる
+- 一覧画面のアーティストカード左側に丸型で表示、詳細画面のヘッダーには大きめの丸型で表示（未設定の場合は表示自体をスキップし、レイアウトは崩れない）
 
 ## 登録者（ゆうき / みさき）
 

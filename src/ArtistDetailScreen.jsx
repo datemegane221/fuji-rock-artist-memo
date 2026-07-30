@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { RANK_OPTIONS, USERS } from "./constants.js";
+import ThumbnailPicker from "./ThumbnailPicker.jsx";
 
 const EMPTY_SIGHTING_FORM = { eventName: "", date: "", stage: "", rank: 3, favoriteSong: "", memo: "", registeredBy: null };
-const EMPTY_PROFILE_FORM = { name: "", genre: "", spotifyUrl: "", youtubeUrl: "", officialUrl: "", memo: "" };
+const EMPTY_PROFILE_FORM = { name: "", genre: "", spotifyUrl: "", youtubeUrl: "", officialUrl: "", memo: "", thumbnailUrl: "" };
 
 function sortByDateDesc(sightings) {
   return [...sightings].sort((a, b) => {
@@ -45,6 +46,7 @@ export default function ArtistDetailScreen({
     setProfileForm({
       name: artist.name, genre: artist.genre || "", spotifyUrl: artist.spotifyUrl || "",
       youtubeUrl: artist.youtubeUrl || "", officialUrl: artist.officialUrl || "", memo: artist.memo || "",
+      thumbnailUrl: artist.thumbnailUrl || "",
     });
     setProfileError(null);
     setShowProfileForm(true);
@@ -145,7 +147,14 @@ export default function ArtistDetailScreen({
           ← 一覧に戻る
         </button>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-          <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start", minWidth: 0 }}>
+            {artist.thumbnailUrl && (
+              <img src={artist.thumbnailUrl} alt="" style={{
+                width: 72, height: 72, borderRadius: "50%", objectFit: "cover", flexShrink: 0,
+                border: "2px solid rgba(245,243,236,0.4)",
+              }} />
+            )}
+            <div style={{ minWidth: 0 }}>
             <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: "#F5F3EC", letterSpacing: "-0.01em" }}>
               {artist.name}
             </h2>
@@ -160,6 +169,7 @@ export default function ArtistDetailScreen({
                 style={{ border: "none", background: "none", color: "#9BC7A0", cursor: "pointer", fontSize: 12, padding: 0 }}>
                 公式情報を検索 ↗
               </button>
+            </div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
@@ -195,6 +205,9 @@ export default function ArtistDetailScreen({
                 onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
                 disabled={profileSubmitting}
                 style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
+              <ThumbnailPicker name={profileForm.name} thumbnailUrl={profileForm.thumbnailUrl}
+                onChange={(url) => setProfileForm({ ...profileForm, thumbnailUrl: url })}
+                disabled={profileSubmitting} />
               <input type="text" placeholder="ジャンル（任意）" value={profileForm.genre}
                 onChange={(e) => setProfileForm({ ...profileForm, genre: e.target.value })}
                 disabled={profileSubmitting}

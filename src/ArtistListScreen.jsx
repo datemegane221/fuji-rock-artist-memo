@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { RANK_OPTIONS, USERS } from "./constants.js";
+import ThumbnailPicker from "./ThumbnailPicker.jsx";
 
 const EMPTY_ARTIST_FORM = {
-  name: "", genre: "", spotifyUrl: "", youtubeUrl: "", officialUrl: "", memo: "",
+  name: "", genre: "", spotifyUrl: "", youtubeUrl: "", officialUrl: "", memo: "", thumbnailUrl: "",
 };
 
 function latestSighting(sightings) {
@@ -198,6 +199,10 @@ export default function ArtistListScreen({
                 disabled={submitting}
                 style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14 }} />
 
+              <ThumbnailPicker name={form.name} thumbnailUrl={form.thumbnailUrl}
+                onChange={(url) => setForm({ ...form, thumbnailUrl: url })}
+                disabled={submitting} />
+
               <input type="text" placeholder="ジャンル（任意）" value={form.genre}
                 onChange={(e) => setForm({ ...form, genre: e.target.value })}
                 disabled={submitting}
@@ -254,42 +259,49 @@ export default function ArtistListScreen({
               return (
                 <button key={artist.id} onClick={() => onOpenArtist(artist.id)}
                   style={{
-                    display: "block", width: "100%", textAlign: "left", cursor: "pointer",
+                    display: "flex", alignItems: "flex-start", gap: 12, width: "100%", textAlign: "left", cursor: "pointer",
                     border: "1px solid #E3DFD1", borderLeft: "4px solid #6B5744",
                     borderRadius: 10, padding: "1rem 1.1rem", background: "white", font: "inherit",
                   }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 600, fontSize: 15.5, color: "#222" }}>{artist.name}</span>
-                    {artist.genre && (
-                      <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "#EDE6D8", color: "#6B5744" }}>
-                        {artist.genre}
-                      </span>
-                    )}
-                    {rankInfo && (
-                      <span style={{
-                        fontSize: 11, padding: "2px 8px", borderRadius: 10,
-                        background: rankInfo.color + "22", color: rankInfo.color, fontWeight: 500,
-                      }}>
-                        {rankInfo.label}
-                      </span>
-                    )}
-                    {registrants.map((u) => (
-                      <span key={u.value} style={{
-                        fontSize: 11, padding: "2px 8px", borderRadius: 10,
-                        background: u.color + "22", color: u.color, fontWeight: 500,
-                      }}>
-                        {u.label}
-                      </span>
-                    ))}
-                  </div>
-                  <p style={{ fontSize: 12, color: "#8A8578", margin: "0 0 6px" }}>
-                    {artistSightings.length > 0
-                      ? `${artistSightings.length}回の記録${latest?.eventName ? ` ・ 直近: ${latest.eventName}` : ""}`
-                      : "視聴記録なし"}
-                  </p>
-                  {artist.memo && (
-                    <p style={{ fontSize: 13, color: "#5F5A4A", margin: 0, lineHeight: 1.6 }}>{artist.memo}</p>
+                  {artist.thumbnailUrl && (
+                    <img src={artist.thumbnailUrl} alt="" style={{
+                      width: 48, height: 48, borderRadius: "50%", objectFit: "cover", flexShrink: 0,
+                    }} />
                   )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 600, fontSize: 15.5, color: "#222" }}>{artist.name}</span>
+                      {artist.genre && (
+                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "#EDE6D8", color: "#6B5744" }}>
+                          {artist.genre}
+                        </span>
+                      )}
+                      {rankInfo && (
+                        <span style={{
+                          fontSize: 11, padding: "2px 8px", borderRadius: 10,
+                          background: rankInfo.color + "22", color: rankInfo.color, fontWeight: 500,
+                        }}>
+                          {rankInfo.label}
+                        </span>
+                      )}
+                      {registrants.map((u) => (
+                        <span key={u.value} style={{
+                          fontSize: 11, padding: "2px 8px", borderRadius: 10,
+                          background: u.color + "22", color: u.color, fontWeight: 500,
+                        }}>
+                          {u.label}
+                        </span>
+                      ))}
+                    </div>
+                    <p style={{ fontSize: 12, color: "#8A8578", margin: "0 0 6px" }}>
+                      {artistSightings.length > 0
+                        ? `${artistSightings.length}回の記録${latest?.eventName ? ` ・ 直近: ${latest.eventName}` : ""}`
+                        : "視聴記録なし"}
+                    </p>
+                    {artist.memo && (
+                      <p style={{ fontSize: 13, color: "#5F5A4A", margin: 0, lineHeight: 1.6 }}>{artist.memo}</p>
+                    )}
+                  </div>
                 </button>
               );
             })}
