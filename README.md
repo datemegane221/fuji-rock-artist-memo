@@ -15,8 +15,17 @@ APIのベースURLは `src/api.js` に定義。
 ## データ構造
 
 - **artist**（アーティストのプロフィール）: id, name, spotifyUrl, youtubeUrl, officialUrl, genre, memo, thumbnailUrl, createdAt
-- **sighting**（1回分の視聴記録）: id, artistId, eventName（自由入力）, date, stage（自由入力）, rank, favoriteSong, memo, registeredBy
+- **sighting**（1回分の視聴記録）: id, artistId, eventName（自由入力）, date, stage（自由入力）, rank, favoriteSong, memo, registeredBy, costumeMemo, costumePhotoUrl（読み取り専用）
 - 1つの artist は複数の sighting を持てる
+
+## 衣装メモ・衣装写真
+
+sightingの追加・編集フォームで、その回の衣装メモ（テキスト）と衣装写真（スマホのカメラ/写真アプリから選択）を記録できる。
+
+- 画像は選択直後にブラウザのCanvas APIで圧縮・リサイズ（長辺1200px程度、JPEG品質0.8）してからアップロードする
+- アップロードは `POST { resource: "costume_photo", pageId, data: { base64, filename, mimeType } }`。新規sighting作成時はまずsightingを作成してそのidをpageIdとして使う
+- テキスト（イベント名・評価・衣装メモなど）の保存と画像アップロードは別処理。画像アップロードが失敗してもテキストは保存され、失敗時はその旨のバナーを表示する（フォームを開き直せば再アップロードできる）
+- 視聴履歴の各カードにcostumePhotoUrlがあればサムネイル表示し、タップで拡大表示できる。costumeMemoがあればその下にテキストで表示する
 
 ## アー写（サムネイル画像）
 

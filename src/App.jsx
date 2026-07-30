@@ -76,8 +76,9 @@ export default function App() {
   const addSighting = async (artistId, fields) => {
     // fields.registeredBy comes from the sighting form itself (defaults to
     // currentUser but is editable, to support recording on a family member's behalf)
-    await api.createSighting({ ...fields, artistId });
+    const result = await api.createSighting({ ...fields, artistId });
     await refreshSightings();
+    return result.id;
   };
 
   const updateSighting = async (id, fields) => {
@@ -87,6 +88,11 @@ export default function App() {
 
   const deleteSighting = async (id) => {
     await api.deleteSighting(id);
+    await refreshSightings();
+  };
+
+  const uploadCostumePhoto = async (pageId, photo) => {
+    await api.uploadCostumePhoto(pageId, photo);
     await refreshSightings();
   };
 
@@ -145,6 +151,7 @@ export default function App() {
           onAddSighting={(fields) => addSighting(artist.id, fields)}
           onUpdateSighting={updateSighting}
           onDeleteSighting={deleteSighting}
+          onUploadCostumePhoto={uploadCostumePhoto}
         />
       );
     }

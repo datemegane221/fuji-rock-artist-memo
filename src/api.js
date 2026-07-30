@@ -62,3 +62,9 @@ export function deleteSighting(id) {
 export function fetchYoutubeThumbnail(name) {
   return getJson(`${BASE_URL}?resource=youtube_thumbnail&name=${encodeURIComponent(name)}`);
 }
+
+// data is { base64, filename, mimeType }. No "action" field - this resource
+// only supports this one operation.
+export function uploadCostumePhoto(pageId, data) {
+  return postJson({ resource: "costume_photo", pageId, data });
+}

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RANK_OPTIONS, USERS } from "./constants.js";
 import ThumbnailPicker from "./ThumbnailPicker.jsx";
+import { resizeImageFile } from "./imageResize.js";
 
-const EMPTY_SIGHTING_FORM = { eventName: "", date: "", stage: "", rank: 3, favoriteSong: "", memo: "", registeredBy: null };
+const EMPTY_SIGHTING_FORM = { eventName: "", date: "", stage: "", rank: 3, favoriteSong: "", memo: "", registeredBy: null, costumeMemo: "" };
 const EMPTY_PROFILE_FORM = { name: "", genre: "", spotifyUrl: "", youtubeUrl: "", officialUrl: "", memo: "", thumbnailUrl: "" };
 
 function sortByDateDesc(sightings) {
@@ -17,7 +18,7 @@ function sortByDateDesc(sightings) {
 
 export default function ArtistDetailScreen({
   artist, sightings, currentUser, registeredByFilter, onBack, onUpdateArtist, onDeleteArtist,
-  onAddSighting, onUpdateSighting, onDeleteSighting,
+  onAddSighting, onUpdateSighting, onDeleteSighting, onUploadCostumePhoto,
 }) {
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [profileForm, setProfileForm] = useState(EMPTY_PROFILE_FORM);
@@ -30,11 +31,26 @@ export default function ArtistDetailScreen({
   const [sightingSubmitting, setSightingSubmitting] = useState(false);
   const [sightingError, setSightingError] = useState(null);
 
+  const [existingCostumePhotoUrl, setExistingCostumePhotoUrl] = useState(null);
+  const [pendingPhoto, setPendingPhoto] = useState(null); // { base64, mimeType, filename, previewUrl }
+  const [resizing, setResizing] = useState(false);
+  const [resizeError, setResizeError] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoUploadNotice, setPhotoUploadNotice] = useState(null);
+  const [enlargedPhotoUrl, setEnlargedPhotoUrl] = useState(null);
+
   const [deletingSightingId, setDeletingSightingId] = useState(null);
   const [sightingListError, setSightingListError] = useState(null);
 
   const [deletingArtist, setDeletingArtist] = useState(false);
   const [deleteArtistError, setDeleteArtistError] = useState(null);
+
+  // release the local preview blob URL whenever it's replaced or the screen unmounts
+  useEffect(() => {
+    return () => {
+      if (pendingPhoto?.previewUrl) URL.revokeObjectURL(pendingPhoto.previewUrl);
+    };
+  }, [pendingPhoto]);
 
   const sorted = sortByDateDesc(sightings);
   const latest = sorted[0] || null;
@@ -66,11 +82,19 @@ export default function ArtistDetailScreen({
     }
   };
 
+  const clearPendingPhoto = () => {
+    if (pendingPhoto?.previewUrl) URL.revokeObjectURL(pendingPhoto.previewUrl);
+    setPendingPhoto(null);
+    setResizeError(null);
+  };
+
   const openAddSighting = () => {
     // defaults to the current user but is editable, to support recording
     // something on a family member's behalf
     setSightingForm({ ...EMPTY_SIGHTING_FORM, eventName: sorted[0]?.eventName || "", registeredBy: currentUser ?? null });
     setEditingSightingId(null);
+    setExistingCostumePhotoUrl(null);
+    clearPendingPhoto();
     setSightingError(null);
     setShowSightingForm(true);
   };
@@ -79,28 +103,78 @@ export default function ArtistDetailScreen({
     setSightingForm({
       eventName: s.eventName || "", date: s.date || "", stage: s.stage || "",
       rank: s.rank ?? 3, favoriteSong: s.favoriteSong || "", memo: s.memo || "",
-      registeredBy: s.registeredBy ?? null,
+      registeredBy: s.registeredBy ?? null, costumeMemo: s.costumeMemo || "",
     });
     setEditingSightingId(s.id);
+    setExistingCostumePhotoUrl(s.costumePhotoUrl || null);
+    clearPendingPhoto();
     setSightingError(null);
     setShowSightingForm(true);
   };
 
+  const handlePhotoSelect = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file again later
+    if (!file) return;
+    setResizing(true);
+    setResizeError(null);
+    try {
+      const { base64, mimeType, blob } = await resizeImageFile(file);
+      if (pendingPhoto?.previewUrl) URL.revokeObjectURL(pendingPhoto.previewUrl);
+      setPendingPhoto({ base64, mimeType, filename: `costume-${Date.now()}.jpg`, previewUrl: URL.createObjectURL(blob) });
+    } catch (err) {
+      setResizeError(err.message || "画像の処理に失敗しました。");
+    } finally {
+      setResizing(false);
+    }
+  };
+
+  const closeSightingForm = () => {
+    setShowSightingForm(false);
+    setEditingSightingId(null);
+    setSightingForm(EMPTY_SIGHTING_FORM);
+    setExistingCostumePhotoUrl(null);
+    clearPendingPhoto();
+  };
+
   const submitSighting = async () => {
-    if (!sightingForm.eventName.trim() || sightingSubmitting) return;
+    if (!sightingForm.eventName.trim() || sightingSubmitting || photoUploading) return;
     setSightingSubmitting(true);
     setSightingError(null);
+    setPhotoUploadNotice(null);
+
+    let pageId = editingSightingId;
     try {
-      if (editingSightingId) await onUpdateSighting(editingSightingId, sightingForm);
-      else await onAddSighting(sightingForm);
-      setShowSightingForm(false);
-      setEditingSightingId(null);
-      setSightingForm(EMPTY_SIGHTING_FORM);
+      if (editingSightingId) {
+        await onUpdateSighting(editingSightingId, sightingForm);
+      } else {
+        pageId = await onAddSighting(sightingForm);
+      }
     } catch (e) {
       setSightingError(e.message || "保存に失敗しました。もう一度お試しください。");
-    } finally {
       setSightingSubmitting(false);
+      return;
     }
+    setSightingSubmitting(false);
+
+    // The sighting itself is saved at this point. A failed photo upload
+    // shouldn't undo that or block closing the form - surface it separately.
+    if (pendingPhoto) {
+      setPhotoUploading(true);
+      try {
+        await onUploadCostumePhoto(pageId, {
+          base64: pendingPhoto.base64, mimeType: pendingPhoto.mimeType, filename: pendingPhoto.filename,
+        });
+      } catch (e) {
+        setPhotoUploadNotice(
+          `「${sightingForm.eventName}」は保存されましたが、衣装写真のアップロードに失敗しました（${e.message || "エラー"}）。編集からもう一度お試しください。`
+        );
+      } finally {
+        setPhotoUploading(false);
+      }
+    }
+
+    closeSightingForm();
   };
 
   const handleDeleteSighting = async (id) => {
@@ -318,6 +392,25 @@ export default function ArtistDetailScreen({
                 onChange={(e) => setSightingForm({ ...sightingForm, memo: e.target.value })}
                 disabled={sightingSubmitting}
                 style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14, resize: "vertical", fontFamily: "inherit" }} />
+
+              <div>
+                <div style={{ fontSize: 12, color: "#6B6656", marginBottom: 6 }}>衣装写真（任意）</div>
+                {(pendingPhoto?.previewUrl || existingCostumePhotoUrl) && (
+                  <img src={pendingPhoto?.previewUrl || existingCostumePhotoUrl} alt=""
+                    style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 8, marginBottom: 8, display: "block" }} />
+                )}
+                <input type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect}
+                  disabled={sightingSubmitting || photoUploading || resizing}
+                  style={{ fontSize: 13 }} />
+                {resizing && <div style={{ fontSize: 11, color: "#8A8578", marginTop: 4 }}>画像を処理中...</div>}
+                {resizeError && <div style={{ color: "#993C1D", fontSize: 12, marginTop: 4 }}>{resizeError}</div>}
+              </div>
+
+              <textarea placeholder="衣装メモ（任意）" value={sightingForm.costumeMemo} rows={2}
+                onChange={(e) => setSightingForm({ ...sightingForm, costumeMemo: e.target.value })}
+                disabled={sightingSubmitting}
+                style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14, resize: "vertical", fontFamily: "inherit" }} />
+
               <div>
                 <div style={{ fontSize: 12, color: "#6B6656", marginBottom: 6 }}>評価</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -352,15 +445,15 @@ export default function ArtistDetailScreen({
               </div>
               {sightingError && <div style={{ color: "#993C1D", fontSize: 12 }}>{sightingError}</div>}
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={submitSighting} disabled={!sightingForm.eventName.trim() || sightingSubmitting}
+                <button onClick={submitSighting} disabled={!sightingForm.eventName.trim() || sightingSubmitting || photoUploading}
                   style={{
                     flex: 1, padding: "11px", borderRadius: 8, border: "none", fontSize: 14,
                     background: sightingForm.eventName.trim() ? "#2D4A3E" : "#D3CFC1",
-                    color: "white", cursor: sightingForm.eventName.trim() && !sightingSubmitting ? "pointer" : "not-allowed", fontWeight: 500,
+                    color: "white", cursor: sightingForm.eventName.trim() && !sightingSubmitting && !photoUploading ? "pointer" : "not-allowed", fontWeight: 500,
                   }}>
-                  {sightingSubmitting ? "保存中..." : editingSightingId ? "更新する" : "登録する"}
+                  {sightingSubmitting ? "保存中..." : photoUploading ? "写真をアップロード中..." : editingSightingId ? "更新する" : "登録する"}
                 </button>
-                <button onClick={() => { setShowSightingForm(false); setEditingSightingId(null); }} disabled={sightingSubmitting}
+                <button onClick={closeSightingForm} disabled={sightingSubmitting || photoUploading}
                   style={{ padding: "11px 16px", borderRadius: 8, border: "1px solid #D3CFC1", fontSize: 14, background: "white", color: "#6B6656", cursor: "pointer" }}>
                   キャンセル
                 </button>
@@ -372,6 +465,19 @@ export default function ArtistDetailScreen({
         {sightingListError && (
           <div style={{ background: "#FBEAE3", border: "1px solid #D9772E", borderRadius: 8, padding: "0.75rem 1rem", marginBottom: "1rem", color: "#993C1D", fontSize: 13 }}>
             {sightingListError}
+          </div>
+        )}
+
+        {photoUploadNotice && (
+          <div style={{
+            background: "#FBEAE3", border: "1px solid #D9772E", borderRadius: 8, padding: "0.75rem 1rem",
+            marginBottom: "1rem", color: "#993C1D", fontSize: 13, display: "flex", justifyContent: "space-between", gap: 8,
+          }}>
+            <span>{photoUploadNotice}</span>
+            <button onClick={() => setPhotoUploadNotice(null)}
+              style={{ border: "none", background: "none", color: "#993C1D", cursor: "pointer", fontSize: 13, flexShrink: 0 }}>
+              ×
+            </button>
           </div>
         )}
 
@@ -415,6 +521,15 @@ export default function ArtistDetailScreen({
                         {s.favoriteSong && ` ・ 推し曲: ${s.favoriteSong}`}
                       </p>
                       {s.memo && <p style={{ fontSize: 13, color: "#5F5A4A", margin: "0 0 6px", lineHeight: 1.6 }}>{s.memo}</p>}
+                      {s.costumePhotoUrl && (
+                        <img src={s.costumePhotoUrl} alt="衣装写真" onClick={() => setEnlargedPhotoUrl(s.costumePhotoUrl)}
+                          style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, marginBottom: 6, cursor: "pointer", display: "block" }} />
+                      )}
+                      {s.costumeMemo && (
+                        <p style={{ fontSize: 12, color: "#8A8578", margin: "0 0 6px", lineHeight: 1.6 }}>
+                          衣装: {s.costumeMemo}
+                        </p>
+                      )}
                       <button onClick={() => search(`${artist.name} セットリスト ${s.eventName}`)}
                         style={{ border: "none", background: "none", color: "#534AB7", cursor: "pointer", fontSize: 12, padding: 0 }}>
                         セットリスト ↗
@@ -437,6 +552,15 @@ export default function ArtistDetailScreen({
           </div>
         )}
       </div>
+
+      {enlargedPhotoUrl && (
+        <div onClick={() => setEnlargedPhotoUrl(null)} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem", cursor: "pointer",
+        }}>
+          <img src={enlargedPhotoUrl} alt="衣装写真" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 8 }} />
+        </div>
+      )}
     </div>
   );
 }
