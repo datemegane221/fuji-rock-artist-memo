@@ -63,8 +63,12 @@ export function fetchYoutubeThumbnail(name) {
   return getJson(`${BASE_URL}?resource=youtube_thumbnail&name=${encodeURIComponent(name)}`);
 }
 
-// data is { base64, filename, mimeType }. No "action" field - this resource
-// only supports this one operation.
+// data is { base64, filename, mimeType }. No "action" field means "upload"
+// (kept as-is for backward compatibility with the already-deployed GAS code).
 export function uploadCostumePhoto(pageId, data) {
   return postJson({ resource: "costume_photo", pageId, data });
+}
+
+export function deleteCostumePhoto(pageId) {
+  return postJson({ resource: "costume_photo", action: "delete", pageId });
 }

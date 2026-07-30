@@ -96,6 +96,11 @@ export default function App() {
     await refreshSightings();
   };
 
+  const deleteCostumePhoto = async (pageId) => {
+    await api.deleteCostumePhoto(pageId);
+    await refreshSightings();
+  };
+
   if (!currentUser) {
     return <ProfilePickerScreen onSelect={selectCurrentUser} />;
   }
@@ -152,6 +157,7 @@ export default function App() {
           onUpdateSighting={updateSighting}
           onDeleteSighting={deleteSighting}
           onUploadCostumePhoto={uploadCostumePhoto}
+          onDeleteCostumePhoto={deleteCostumePhoto}
         />
       );
     }

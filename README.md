@@ -25,6 +25,7 @@ sightingの追加・編集フォームで、その回の衣装メモ（テキス
 - 画像は選択直後にブラウザのCanvas APIで圧縮・リサイズ（長辺1200px程度、JPEG品質0.8）してからアップロードする
 - アップロードは `POST { resource: "costume_photo", pageId, data: { base64, filename, mimeType } }`。新規sighting作成時はまずsightingを作成してそのidをpageIdとして使う
 - テキスト（イベント名・評価・衣装メモなど）の保存と画像アップロードは別処理。画像アップロードが失敗してもテキストは保存され、失敗時はその旨のバナーを表示する（フォームを開き直せば再アップロードできる）
+- 削除は `POST { resource: "costume_photo", action: "delete", pageId }`。編集フォーム内の「この写真を削除」から、視聴履歴（sighting）自体は残したまま写真だけ削除できる
 - 視聴履歴の各カードにcostumePhotoUrlがあればサムネイル表示し、タップで拡大表示できる。costumeMemoがあればその下にテキストで表示する
 
 ## アー写（サムネイル画像）

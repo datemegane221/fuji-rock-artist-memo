@@ -18,7 +18,7 @@ function sortByDateDesc(sightings) {
 
 export default function ArtistDetailScreen({
   artist, sightings, currentUser, registeredByFilter, onBack, onUpdateArtist, onDeleteArtist,
-  onAddSighting, onUpdateSighting, onDeleteSighting, onUploadCostumePhoto,
+  onAddSighting, onUpdateSighting, onDeleteSighting, onUploadCostumePhoto, onDeleteCostumePhoto,
 }) {
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [profileForm, setProfileForm] = useState(EMPTY_PROFILE_FORM);
@@ -38,6 +38,8 @@ export default function ArtistDetailScreen({
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoUploadNotice, setPhotoUploadNotice] = useState(null);
   const [enlargedPhotoUrl, setEnlargedPhotoUrl] = useState(null);
+  const [deletingPhoto, setDeletingPhoto] = useState(false);
+  const [deletePhotoError, setDeletePhotoError] = useState(null);
 
   const [deletingSightingId, setDeletingSightingId] = useState(null);
   const [sightingListError, setSightingListError] = useState(null);
@@ -96,6 +98,7 @@ export default function ArtistDetailScreen({
     setExistingCostumePhotoUrl(null);
     clearPendingPhoto();
     setSightingError(null);
+    setDeletePhotoError(null);
     setShowSightingForm(true);
   };
 
@@ -109,7 +112,23 @@ export default function ArtistDetailScreen({
     setExistingCostumePhotoUrl(s.costumePhotoUrl || null);
     clearPendingPhoto();
     setSightingError(null);
+    setDeletePhotoError(null);
     setShowSightingForm(true);
+  };
+
+  const handleDeleteCostumePhoto = async () => {
+    if (!editingSightingId || !existingCostumePhotoUrl || deletingPhoto) return;
+    if (!window.confirm("衣装写真を削除しますか？")) return;
+    setDeletingPhoto(true);
+    setDeletePhotoError(null);
+    try {
+      await onDeleteCostumePhoto(editingSightingId);
+      setExistingCostumePhotoUrl(null);
+    } catch (e) {
+      setDeletePhotoError(e.message || "削除に失敗しました。もう一度お試しください。");
+    } finally {
+      setDeletingPhoto(false);
+    }
   };
 
   const handlePhotoSelect = async (e) => {
@@ -134,6 +153,7 @@ export default function ArtistDetailScreen({
     setEditingSightingId(null);
     setSightingForm(EMPTY_SIGHTING_FORM);
     setExistingCostumePhotoUrl(null);
+    setDeletePhotoError(null);
     clearPendingPhoto();
   };
 
@@ -396,11 +416,20 @@ export default function ArtistDetailScreen({
               <div>
                 <div style={{ fontSize: 12, color: "#6B6656", marginBottom: 6 }}>衣装写真（任意）</div>
                 {(pendingPhoto?.previewUrl || existingCostumePhotoUrl) && (
-                  <img src={pendingPhoto?.previewUrl || existingCostumePhotoUrl} alt=""
-                    style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 8, marginBottom: 8, display: "block" }} />
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 8 }}>
+                    <img src={pendingPhoto?.previewUrl || existingCostumePhotoUrl} alt=""
+                      style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 8, display: "block" }} />
+                    {!pendingPhoto && existingCostumePhotoUrl && (
+                      <button type="button" onClick={handleDeleteCostumePhoto} disabled={deletingPhoto}
+                        style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 12, color: "#D9772E", padding: 0 }}>
+                        {deletingPhoto ? "削除中..." : "この写真を削除"}
+                      </button>
+                    )}
+                  </div>
                 )}
+                {deletePhotoError && <div style={{ color: "#993C1D", fontSize: 12, marginBottom: 8 }}>{deletePhotoError}</div>}
                 <input type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect}
-                  disabled={sightingSubmitting || photoUploading || resizing}
+                  disabled={sightingSubmitting || photoUploading || resizing || deletingPhoto}
                   style={{ fontSize: 13 }} />
                 {resizing && <div style={{ fontSize: 11, color: "#8A8578", marginTop: 4 }}>画像を処理中...</div>}
                 {resizeError && <div style={{ color: "#993C1D", fontSize: 12, marginTop: 4 }}>{resizeError}</div>}
