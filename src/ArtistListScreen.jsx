@@ -33,6 +33,12 @@ export default function ArtistListScreen({
   // { festivalName, lines } from a resolved festival URL - carried into the
   // detail screen so the first sighting form can offer them as suggestions.
   const [stageLineSuggestions, setStageLineSuggestions] = useState(null);
+  // Whether the currently-open form was opened via the festival URL flow -
+  // tracked separately from stageLineSuggestions, since a resolved festival
+  // page can still have no parseable stage lines and the sighting form
+  // should auto-open regardless (this is a "add artist + sighting" flow,
+  // not "add artist + maybe show some suggestions").
+  const [fromFestivalUrl, setFromFestivalUrl] = useState(false);
 
   const sightingsByArtist = (artistId) => sightings.filter((s) => s.artistId === artistId);
   const events = Array.from(new Set(sightings.map((s) => s.eventName).filter(Boolean)));
@@ -59,6 +65,7 @@ export default function ArtistListScreen({
       memo: data.memo || "", thumbnailUrl: data.thumbnailUrl || "",
     });
     setStageLineSuggestions(stageLineSuggestions);
+    setFromFestivalUrl(true);
     setError(null);
     setShowForm(true);
   };
@@ -68,9 +75,10 @@ export default function ArtistListScreen({
     setSubmitting(true);
     setError(null);
     try {
-      await onAddArtist({ ...form, name: form.name.trim() }, stageLineSuggestions);
+      await onAddArtist({ ...form, name: form.name.trim() }, stageLineSuggestions, fromFestivalUrl);
       setForm(EMPTY_ARTIST_FORM);
       setStageLineSuggestions(null);
+      setFromFestivalUrl(false);
       setShowForm(false);
     } catch (e) {
       setError(e.message || "登録に失敗しました。もう一度お試しください。");
@@ -132,7 +140,7 @@ export default function ArtistListScreen({
               ⚙
             </button>
             <button
-              onClick={() => { setForm(EMPTY_ARTIST_FORM); setStageLineSuggestions(null); setError(null); setShowForm(!showForm); }}
+              onClick={() => { setForm(EMPTY_ARTIST_FORM); setStageLineSuggestions(null); setFromFestivalUrl(false); setError(null); setShowForm(!showForm); }}
               style={{
                 padding: "8px 16px", borderRadius: 24, border: "1px solid rgba(245,243,236,0.4)",
                 background: showForm ? "rgba(245,243,236,0.15)" : "#D9772E",

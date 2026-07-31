@@ -177,9 +177,9 @@ export default function App() {
       onOpenArtistFromFestivalUrl={(id, stageLineSuggestions) => {
         setView({ screen: "detail", artistId: id, stageLineSuggestions, autoOpenSightingForm: true });
       }}
-      onAddArtist={async (fields, stageLineSuggestions) => {
+      onAddArtist={async (fields, stageLineSuggestions, fromFestivalUrl) => {
         const id = await addArtist(fields);
-        setView({ screen: "detail", artistId: id, stageLineSuggestions, autoOpenSightingForm: !!stageLineSuggestions });
+        setView({ screen: "detail", artistId: id, stageLineSuggestions, autoOpenSightingForm: !!fromFestivalUrl });
       }}
       onOpenSettings={() => setView({ screen: "settings" })}
     />
