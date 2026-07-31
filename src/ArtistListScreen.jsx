@@ -30,14 +30,15 @@ export default function ArtistListScreen({
   const [error, setError] = useState(null);
   const [eventFilter, setEventFilter] = useState("all");
   const [sortBy, setSortBy] = useState("rank");
-  // { festivalName, lines } from a resolved festival URL - carried into the
-  // detail screen so the first sighting form can offer them as suggestions.
-  const [stageLineSuggestions, setStageLineSuggestions] = useState(null);
+  // { festivalName, eventName, stages: [{ rawText, date, stage, ... }] }
+  // from a resolved festival URL - carried into the detail screen so the
+  // first sighting form can prefill / offer these as suggestions.
+  const [stageSuggestions, setStageSuggestions] = useState(null);
   // Whether the currently-open form was opened via the festival URL flow -
-  // tracked separately from stageLineSuggestions, since a resolved festival
-  // page can still have no parseable stage lines and the sighting form
-  // should auto-open regardless (this is a "add artist + sighting" flow,
-  // not "add artist + maybe show some suggestions").
+  // tracked separately from stageSuggestions, since a resolved festival
+  // page can still have no parseable stages and the sighting form should
+  // auto-open regardless (this is a "add artist + sighting" flow, not
+  // "add artist + maybe show some suggestions").
   const [fromFestivalUrl, setFromFestivalUrl] = useState(false);
 
   const sightingsByArtist = (artistId) => sightings.filter((s) => s.artistId === artistId);
@@ -49,13 +50,14 @@ export default function ArtistListScreen({
   // artist with this name is already registered, jump straight to adding a
   // sighting for them instead of prefilling a duplicate "new artist" form.
   const handleTopFestivalApply = (data, festival) => {
-    const stageLineSuggestions = data.stageLines && data.stageLines.length
-      ? { festivalName: festival?.name || "", lines: data.stageLines }
+    const stages = Array.isArray(data.stages) ? data.stages : [];
+    const stageSuggestions = (data.eventName || stages.length > 0)
+      ? { festivalName: festival?.name || "", eventName: data.eventName || "", stages }
       : null;
 
     const existing = artists.find((a) => normalizeName(a.name) === normalizeName(data.name));
     if (existing) {
-      onOpenArtistFromFestivalUrl(existing.id, stageLineSuggestions);
+      onOpenArtistFromFestivalUrl(existing.id, stageSuggestions);
       return;
     }
 
@@ -64,7 +66,7 @@ export default function ArtistListScreen({
       youtubeUrl: data.youtubeUrl || "", officialUrl: data.officialUrl || "",
       memo: data.memo || "", thumbnailUrl: data.thumbnailUrl || "",
     });
-    setStageLineSuggestions(stageLineSuggestions);
+    setStageSuggestions(stageSuggestions);
     setFromFestivalUrl(true);
     setError(null);
     setShowForm(true);
@@ -75,9 +77,9 @@ export default function ArtistListScreen({
     setSubmitting(true);
     setError(null);
     try {
-      await onAddArtist({ ...form, name: form.name.trim() }, stageLineSuggestions, fromFestivalUrl);
+      await onAddArtist({ ...form, name: form.name.trim() }, stageSuggestions, fromFestivalUrl);
       setForm(EMPTY_ARTIST_FORM);
-      setStageLineSuggestions(null);
+      setStageSuggestions(null);
       setFromFestivalUrl(false);
       setShowForm(false);
     } catch (e) {
@@ -140,7 +142,7 @@ export default function ArtistListScreen({
               ⚙
             </button>
             <button
-              onClick={() => { setForm(EMPTY_ARTIST_FORM); setStageLineSuggestions(null); setFromFestivalUrl(false); setError(null); setShowForm(!showForm); }}
+              onClick={() => { setForm(EMPTY_ARTIST_FORM); setStageSuggestions(null); setFromFestivalUrl(false); setError(null); setShowForm(!showForm); }}
               style={{
                 padding: "8px 16px", borderRadius: 24, border: "1px solid rgba(245,243,236,0.4)",
                 background: showForm ? "rgba(245,243,236,0.15)" : "#D9772E",

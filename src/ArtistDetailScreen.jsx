@@ -19,7 +19,7 @@ function sortByDateDesc(sightings) {
 export default function ArtistDetailScreen({
   artist, sightings, currentUser, registeredByFilter, onBack, onUpdateArtist, onDeleteArtist,
   onAddSighting, onUpdateSighting, onDeleteSighting, onUploadCostumePhoto, onDeleteCostumePhoto,
-  stageLineSuggestions, autoOpenSightingForm,
+  stageSuggestions, autoOpenSightingForm,
 }) {
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [profileForm, setProfileForm] = useState(EMPTY_PROFILE_FORM);
@@ -104,10 +104,21 @@ export default function ArtistDetailScreen({
   };
 
   // Arrived here from the top-screen festival URL flow - open straight into
-  // the sighting form instead of making the user find "+ 記録を追加" again.
+  // the sighting form instead of making the user find "+ 記録を追加" again,
+  // and prefill what the festival page already told us: the event name
+  // always, plus date/stage too when there's exactly one stage entry (more
+  // than one needs the user to pick which one via the suggestion chips).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (autoOpenSightingForm) openAddSighting();
+    if (!autoOpenSightingForm) return;
+    openAddSighting();
+    if (stageSuggestions?.eventName) {
+      setSightingForm((f) => ({ ...f, eventName: stageSuggestions.eventName }));
+    }
+    if (stageSuggestions?.stages?.length === 1) {
+      const only = stageSuggestions.stages[0];
+      setSightingForm((f) => ({ ...f, date: only.date || f.date, stage: only.stage || f.stage }));
+    }
   }, []);
 
   const openEditSighting = (s) => {
@@ -398,26 +409,25 @@ export default function ArtistDetailScreen({
         {showSightingForm && (
           <div style={{ background: "white", borderRadius: 12, padding: "1.25rem", marginBottom: "1.5rem", border: "1px solid #E3DFD1" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {!editingSightingId && stageLineSuggestions?.lines?.length > 0 && (
+              {/* A single stage entry is auto-filled on open (see the
+                  autoOpenSightingForm effect above); multiple entries need
+                  the user to pick which one applies. */}
+              {!editingSightingId && stageSuggestions?.stages?.length > 1 && (
                 <div>
                   <div style={{ fontSize: 12, color: "#6B6656", marginBottom: 6 }}>
-                    {stageLineSuggestions.festivalName}の出演日程から選ぶ（イベント名・ステージ欄に反映）
+                    {stageSuggestions.festivalName}の出演日程から選ぶ（日付・ステージ欄に反映）
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {stageLineSuggestions.lines.map((line, i) => (
+                    {stageSuggestions.stages.map((s, i) => (
                       <button key={i} type="button"
-                        onClick={() => setSightingForm((f) => ({
-                          ...f,
-                          eventName: f.eventName || stageLineSuggestions.festivalName,
-                          stage: line,
-                        }))}
+                        onClick={() => setSightingForm((f) => ({ ...f, date: s.date || f.date, stage: s.stage || f.stage }))}
                         disabled={sightingSubmitting}
                         style={{
                           padding: "4px 10px", borderRadius: 14, fontSize: 11, textAlign: "left",
-                          border: sightingForm.stage === line ? "2px solid #2D4A3E" : "1px solid #D3CFC1",
+                          border: sightingForm.date === s.date && sightingForm.stage === s.stage ? "2px solid #2D4A3E" : "1px solid #D3CFC1",
                           background: "white", color: "#6B5744", cursor: "pointer",
                         }}>
-                        {line}
+                        {s.rawText || [s.date, s.stage].filter(Boolean).join(" ")}
                       </button>
                     ))}
                   </div>

@@ -11,8 +11,9 @@ function looksLikeUrl(value) {
 }
 
 // onApply(data, festival) is called when the URL resolves to a supported
-// festival - data is { name, thumbnailUrl, memo, stageLines, spotifyUrl,
-// youtubeUrl, officialUrl, sourceUrl }, festival is { id, name }.
+// festival - data is { name, thumbnailUrl, memo, eventName, stages,
+// spotifyUrl, youtubeUrl, officialUrl, sourceUrl }, festival is { id, name }.
+// stages is [{ rawText, month, day, dayOfWeek, startTime, endTime, stage, date }].
 export default function FestivalUrlPicker({ disabled, onApply }) {
   const [url, setUrl] = useState("");
   const [festivals, setFestivals] = useState([]);
