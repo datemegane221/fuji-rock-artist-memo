@@ -26,6 +26,7 @@
 4. Notionの`select`と`status`は別物で書き込みJSON形式が違う（`{select:{name}}` vs `{status:{name}}`）。型を誤ると`Rank is expected to be select`のような400エラーになる。
 5. GASのPOSTは`Content-Type: text/plain`で送っている（`application/json`だとCORSのpreflightが飛び、GAS側がOPTIONSを処理できず失敗する）。
 6. Notionへのファイルアップロード（衣装写真）は単純なPATCHでは完結せず、①`/file_uploads`で枠を作成 → ②multipart/form-dataでバイナリを送信（`notionFetch_`は使えない、`Content-Type`を指定せず`UrlFetchApp.fetch`に`payload: { file: blob }`で渡す）→ ③ページのFiles & mediaプロパティに`file_upload`参照で紐づけ、の3ステップが必要（`uploadCostumePhoto_`参照）。
+7. フェス公式サイトのHTMLを正規表現でパースする（`parseFujiRockArtistPage_`）際、`UrlFetchApp.fetch`で取れる生HTMLは要素ごとにタグで区切られていることが多く、複数要素にまたがるテキスト（例: 出演日程の日付・曜日・時間・ステージ名が別々の`<span>`/`<div>`）を1つの正規表現で直接マッチさせようとすると、タグに阻まれて0件になる。ブラウザの`innerText`で見えるテキストは見た目上つながって見えるだけで、生HTMLとは別物。**複数要素にまたがる可能性のあるテキストは、`stripTags_`でタグを除去してから正規表現をかける**こと（`stages`抽出は`stripTags_(html)`に対して行っている）。原因調査時は、実ページで`document.body.innerText.match(/.{0,60}(キーワード).{0,60}/g)`をブラウザのconsoleで実行してもらうと、少なくとも表記ゆれ（日英どちらの形式か等）は確認できる。
 
 ## デプロイ
 
