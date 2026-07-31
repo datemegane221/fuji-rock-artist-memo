@@ -46,6 +46,7 @@
 - YouTubeチャンネルのサムネイル検索・確定・表示（`resource=youtube_thumbnail`）
 - 衣装メモ・衣装写真（撮影 or 写真選択→Canvas APIでリサイズ・圧縮→Base64でアップロード、`resource=costume_photo`）。画像アップロード失敗時もテキストは保存される設計
 - 衣装写真だけの削除（`resource=costume_photo, action=delete`）。sighting本体は残したまま写真のみ削除できる（`deleteCostumePhoto_`参照）
+- アーティスト新規登録フォームでフェス公式アーティストページのURLを貼ると自動入力（`resource=supported_festivals`で対応フェス一覧取得、`resource=festival_artist_url`でURL解析。出演日程の文字列配列はパースせず、登録直後のsighting追加フォームに選択候補として表示するだけ）
 
 ## 未実装・見送り中
 

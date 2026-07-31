@@ -158,6 +158,7 @@ export default function App() {
           onDeleteSighting={deleteSighting}
           onUploadCostumePhoto={uploadCostumePhoto}
           onDeleteCostumePhoto={deleteCostumePhoto}
+          stageLineSuggestions={view.stageLineSuggestions}
         />
       );
     }
@@ -172,9 +173,9 @@ export default function App() {
       registeredByFilter={registeredByFilter}
       onChangeRegisteredByFilter={setRegisteredByFilter}
       onOpenArtist={(id) => setView({ screen: "detail", artistId: id })}
-      onAddArtist={async (fields) => {
+      onAddArtist={async (fields, stageLineSuggestions) => {
         const id = await addArtist(fields);
-        setView({ screen: "detail", artistId: id });
+        setView({ screen: "detail", artistId: id, stageLineSuggestions });
       }}
       onOpenSettings={() => setView({ screen: "settings" })}
     />

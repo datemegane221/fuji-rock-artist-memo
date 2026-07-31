@@ -19,6 +19,7 @@ function sortByDateDesc(sightings) {
 export default function ArtistDetailScreen({
   artist, sightings, currentUser, registeredByFilter, onBack, onUpdateArtist, onDeleteArtist,
   onAddSighting, onUpdateSighting, onDeleteSighting, onUploadCostumePhoto, onDeleteCostumePhoto,
+  stageLineSuggestions,
 }) {
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [profileForm, setProfileForm] = useState(EMPTY_PROFILE_FORM);
@@ -390,6 +391,31 @@ export default function ArtistDetailScreen({
         {showSightingForm && (
           <div style={{ background: "white", borderRadius: 12, padding: "1.25rem", marginBottom: "1.5rem", border: "1px solid #E3DFD1" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {!editingSightingId && stageLineSuggestions?.lines?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, color: "#6B6656", marginBottom: 6 }}>
+                    {stageLineSuggestions.festivalName}の出演日程から選ぶ（イベント名・ステージ欄に反映）
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {stageLineSuggestions.lines.map((line, i) => (
+                      <button key={i} type="button"
+                        onClick={() => setSightingForm((f) => ({
+                          ...f,
+                          eventName: f.eventName || stageLineSuggestions.festivalName,
+                          stage: line,
+                        }))}
+                        disabled={sightingSubmitting}
+                        style={{
+                          padding: "4px 10px", borderRadius: 14, fontSize: 11, textAlign: "left",
+                          border: sightingForm.stage === line ? "2px solid #2D4A3E" : "1px solid #D3CFC1",
+                          background: "white", color: "#6B5744", cursor: "pointer",
+                        }}>
+                        {line}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <input type="text" placeholder="イベント名（例: フジロックフェスティバル）" value={sightingForm.eventName}
                 onChange={(e) => setSightingForm({ ...sightingForm, eventName: e.target.value })}
                 disabled={sightingSubmitting}

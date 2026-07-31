@@ -72,3 +72,13 @@ export function uploadCostumePhoto(pageId, data) {
 export function deleteCostumePhoto(pageId) {
   return postJson({ resource: "costume_photo", action: "delete", pageId });
 }
+
+// data is [{ id, name }, ...]
+export function fetchSupportedFestivals() {
+  return getJson(`${BASE_URL}?resource=supported_festivals`);
+}
+
+// result is { supported, festival, data } - see FestivalUrlPicker for the shape of `data`
+export function fetchFestivalArtistInfo(url) {
+  return postJson({ resource: "festival_artist_url", data: { url } });
+}

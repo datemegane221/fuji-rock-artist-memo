@@ -28,6 +28,16 @@ sightingの追加・編集フォームで、その回の衣装メモ（テキス
 - 削除は `POST { resource: "costume_photo", action: "delete", pageId }`。編集フォーム内の「この写真を削除」から、視聴履歴（sighting）自体は残したまま写真だけ削除できる
 - 視聴履歴の各カードにcostumePhotoUrlがあればサムネイル表示し、タップで拡大表示できる。costumeMemoがあればその下にテキストで表示する
 
+## フェス公式サイトからの自動入力
+
+アーティストの新規登録フォームの一番上に「フェス公式アーティストページURL」の入力欄がある。対応しているフェスのURLを貼って「情報を取得」を押すと、アーティスト名・画像・プロフィール・Spotify/YouTube/公式サイトのリンクを自動入力できる（保存はされず、フォーム上で確認・修正してから登録する）。
+
+- `GET ?resource=supported_festivals` で対応フェス一覧（`{ id, name }`の配列）を取得し、非対応URLだった場合の案内メッセージに使う
+- `POST { resource: "festival_artist_url", data: { url } }` でURLを解析。対応フェスなら`{ supported: true, festival, data }`、非対応なら`{ supported: false, festival: null, data: null }`が返る
+- URLが空、または`http(s)://`として不正な入力のときはAPIを呼ばない
+- 対応フェスの出演日程（`data.stageLines`、"July 24 (Fri) 25:30-26:15 CRYSTAL PALACE TENT"のような文字列の配列）は、そのアーティストを登録した直後に開く「+ 記録を追加」フォームに候補として表示される。タップするとその文字列がそのまま「ステージ」欄に入り、「イベント名」が空ならフェス名で埋まる（構造化されたdate/stageへのパースはしていない。テキストは参考情報として使い、日付は手入力で調整する想定）
+- 取得できる項目が一部欠けていても（画像だけ取れない、プロフィールが空、など）フォーム自体は問題なく使える
+
 ## アー写（サムネイル画像）
 
 アーティストの追加・編集フォームに「画像を検索」ボタンがあり、`GET ?resource=youtube_thumbnail&name=...` でYouTubeチャンネルのサムネイルを検索できる。

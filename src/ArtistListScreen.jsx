@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { RANK_OPTIONS, USERS } from "./constants.js";
 import ThumbnailPicker from "./ThumbnailPicker.jsx";
+import FestivalUrlPicker from "./FestivalUrlPicker.jsx";
 
 const EMPTY_ARTIST_FORM = {
   name: "", genre: "", spotifyUrl: "", youtubeUrl: "", officialUrl: "", memo: "", thumbnailUrl: "",
@@ -27,19 +28,42 @@ export default function ArtistListScreen({
   const [error, setError] = useState(null);
   const [eventFilter, setEventFilter] = useState("all");
   const [sortBy, setSortBy] = useState("rank");
+  // { festivalName, lines } from a resolved festival URL - carried into the
+  // detail screen so the first sighting form can offer them as suggestions.
+  const [stageLineSuggestions, setStageLineSuggestions] = useState(null);
 
   const sightingsByArtist = (artistId) => sightings.filter((s) => s.artistId === artistId);
   const events = Array.from(new Set(sightings.map((s) => s.eventName).filter(Boolean)));
 
   const canSubmit = form.name.trim().length > 0 && !submitting;
 
+  // Only fill in fields the festival site actually returned - avoids
+  // clobbering anything the user already typed with an empty value.
+  const handleFestivalApply = (data, festival) => {
+    setForm((f) => ({
+      ...f,
+      name: data.name || f.name,
+      thumbnailUrl: data.thumbnailUrl || f.thumbnailUrl,
+      memo: data.memo || f.memo,
+      spotifyUrl: data.spotifyUrl || f.spotifyUrl,
+      youtubeUrl: data.youtubeUrl || f.youtubeUrl,
+      officialUrl: data.officialUrl || f.officialUrl,
+    }));
+    setStageLineSuggestions(
+      data.stageLines && data.stageLines.length
+        ? { festivalName: festival?.name || "", lines: data.stageLines }
+        : null
+    );
+  };
+
   const handleSubmit = async () => {
     if (!form.name.trim() || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
-      await onAddArtist({ ...form, name: form.name.trim() });
+      await onAddArtist({ ...form, name: form.name.trim() }, stageLineSuggestions);
       setForm(EMPTY_ARTIST_FORM);
+      setStageLineSuggestions(null);
       setShowForm(false);
     } catch (e) {
       setError(e.message || "登録に失敗しました。もう一度お試しください。");
@@ -101,7 +125,7 @@ export default function ArtistListScreen({
               ⚙
             </button>
             <button
-              onClick={() => { setForm(EMPTY_ARTIST_FORM); setError(null); setShowForm(!showForm); }}
+              onClick={() => { setForm(EMPTY_ARTIST_FORM); setStageLineSuggestions(null); setError(null); setShowForm(!showForm); }}
               style={{
                 padding: "8px 16px", borderRadius: 24, border: "1px solid rgba(245,243,236,0.4)",
                 background: showForm ? "rgba(245,243,236,0.15)" : "#D9772E",
@@ -194,6 +218,8 @@ export default function ArtistListScreen({
             marginBottom: "1.5rem", border: "1px solid #E3DFD1",
           }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <FestivalUrlPicker disabled={submitting} onApply={handleFestivalApply} />
+
               <input type="text" placeholder="アーティスト名" value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 disabled={submitting}
