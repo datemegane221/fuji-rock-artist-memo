@@ -159,6 +159,7 @@ export default function App() {
           onUploadCostumePhoto={uploadCostumePhoto}
           onDeleteCostumePhoto={deleteCostumePhoto}
           stageLineSuggestions={view.stageLineSuggestions}
+          autoOpenSightingForm={view.autoOpenSightingForm}
         />
       );
     }
@@ -173,9 +174,12 @@ export default function App() {
       registeredByFilter={registeredByFilter}
       onChangeRegisteredByFilter={setRegisteredByFilter}
       onOpenArtist={(id) => setView({ screen: "detail", artistId: id })}
+      onOpenArtistFromFestivalUrl={(id, stageLineSuggestions) => {
+        setView({ screen: "detail", artistId: id, stageLineSuggestions, autoOpenSightingForm: true });
+      }}
       onAddArtist={async (fields, stageLineSuggestions) => {
         const id = await addArtist(fields);
-        setView({ screen: "detail", artistId: id, stageLineSuggestions });
+        setView({ screen: "detail", artistId: id, stageLineSuggestions, autoOpenSightingForm: !!stageLineSuggestions });
       }}
       onOpenSettings={() => setView({ screen: "settings" })}
     />

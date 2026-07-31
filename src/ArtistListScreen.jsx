@@ -18,8 +18,10 @@ function latestSighting(sightings) {
   })[0];
 }
 
+const normalizeName = (s) => (s || "").trim().toLowerCase();
+
 export default function ArtistListScreen({
-  artists, sightings, onOpenArtist, onAddArtist, onOpenSettings, currentUser,
+  artists, sightings, onOpenArtist, onOpenArtistFromFestivalUrl, onAddArtist, onOpenSettings, currentUser,
   registeredByFilter, onChangeRegisteredByFilter,
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -37,23 +39,28 @@ export default function ArtistListScreen({
 
   const canSubmit = form.name.trim().length > 0 && !submitting;
 
-  // Only fill in fields the festival site actually returned - avoids
-  // clobbering anything the user already typed with an empty value.
-  const handleFestivalApply = (data, festival) => {
-    setForm((f) => ({
-      ...f,
-      name: data.name || f.name,
-      thumbnailUrl: data.thumbnailUrl || f.thumbnailUrl,
-      memo: data.memo || f.memo,
-      spotifyUrl: data.spotifyUrl || f.spotifyUrl,
-      youtubeUrl: data.youtubeUrl || f.youtubeUrl,
-      officialUrl: data.officialUrl || f.officialUrl,
-    }));
-    setStageLineSuggestions(
-      data.stageLines && data.stageLines.length
-        ? { festivalName: festival?.name || "", lines: data.stageLines }
-        : null
-    );
+  // The URL represents a sighting, not necessarily a new artist - if an
+  // artist with this name is already registered, jump straight to adding a
+  // sighting for them instead of prefilling a duplicate "new artist" form.
+  const handleTopFestivalApply = (data, festival) => {
+    const stageLineSuggestions = data.stageLines && data.stageLines.length
+      ? { festivalName: festival?.name || "", lines: data.stageLines }
+      : null;
+
+    const existing = artists.find((a) => normalizeName(a.name) === normalizeName(data.name));
+    if (existing) {
+      onOpenArtistFromFestivalUrl(existing.id, stageLineSuggestions);
+      return;
+    }
+
+    setForm({
+      name: data.name || "", genre: "", spotifyUrl: data.spotifyUrl || "",
+      youtubeUrl: data.youtubeUrl || "", officialUrl: data.officialUrl || "",
+      memo: data.memo || "", thumbnailUrl: data.thumbnailUrl || "",
+    });
+    setStageLineSuggestions(stageLineSuggestions);
+    setError(null);
+    setShowForm(true);
   };
 
   const handleSubmit = async () => {
@@ -141,6 +148,16 @@ export default function ArtistListScreen({
 
       <div style={{ background: "#F5F3EC", borderRadius: "0 0 16px 16px", padding: "1.25rem 1.5rem 1.5rem" }}>
 
+        {/* Festival URL entry point - represents a single sighting: an
+            existing artist jumps straight to its sighting form, a new one
+            opens the artist form prefilled below for confirmation first. */}
+        <div style={{ background: "white", borderRadius: 12, padding: "1rem 1.1rem", marginBottom: "1.25rem", border: "1px solid #E3DFD1" }}>
+          <div style={{ fontSize: 12, color: "#6B6656", marginBottom: 8 }}>
+            フェス公式アーティストページのURLを貼って読み込む
+          </div>
+          <FestivalUrlPicker disabled={submitting} onApply={handleTopFestivalApply} />
+        </div>
+
         {/* Filters */}
         {artists.length > 0 && (
           <div style={{ display: "flex", gap: 16, marginBottom: "1.25rem", flexWrap: "wrap", alignItems: "center" }}>
@@ -218,8 +235,6 @@ export default function ArtistListScreen({
             marginBottom: "1.5rem", border: "1px solid #E3DFD1",
           }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <FestivalUrlPicker disabled={submitting} onApply={handleFestivalApply} />
-
               <input type="text" placeholder="アーティスト名" value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 disabled={submitting}

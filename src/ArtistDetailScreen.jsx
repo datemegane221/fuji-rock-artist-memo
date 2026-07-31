@@ -19,7 +19,7 @@ function sortByDateDesc(sightings) {
 export default function ArtistDetailScreen({
   artist, sightings, currentUser, registeredByFilter, onBack, onUpdateArtist, onDeleteArtist,
   onAddSighting, onUpdateSighting, onDeleteSighting, onUploadCostumePhoto, onDeleteCostumePhoto,
-  stageLineSuggestions,
+  stageLineSuggestions, autoOpenSightingForm,
 }) {
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [profileForm, setProfileForm] = useState(EMPTY_PROFILE_FORM);
@@ -102,6 +102,13 @@ export default function ArtistDetailScreen({
     setDeletePhotoError(null);
     setShowSightingForm(true);
   };
+
+  // Arrived here from the top-screen festival URL flow - open straight into
+  // the sighting form instead of making the user find "+ 記録を追加" again.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (autoOpenSightingForm) openAddSighting();
+  }, []);
 
   const openEditSighting = (s) => {
     setSightingForm({
